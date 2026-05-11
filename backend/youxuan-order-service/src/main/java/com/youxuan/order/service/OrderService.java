@@ -4,14 +4,17 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.youxuan.common.api.ErrorCode;
 import com.youxuan.common.api.PageResponse;
+import com.youxuan.common.config.IdempotentLockService;
 import com.youxuan.common.exception.BizException;
 import com.youxuan.common.id.IdGenerator;
 import com.youxuan.common.web.RequestContext;
+import java.time.Duration;
 import com.youxuan.order.constant.OrderStatusConstants;
 import com.youxuan.order.dto.OrderCreateItem;
 import com.youxuan.order.model.OrderDO;
 import com.youxuan.order.model.OrderItemDO;
 import com.youxuan.order.model.OrderStatusLogDO;
+import com.youxuan.order.mq.OrderEventPublisher;
 import com.youxuan.order.repository.OrderItemRepository;
 import com.youxuan.order.repository.OrderRepository;
 import com.youxuan.order.repository.OrderStatusLogRepository;
@@ -54,6 +57,12 @@ public class OrderService {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private IdempotentLockService idempotentLockService;
+
+    @Autowired
+    private OrderEventPublisher orderEventPublisher;
+
     /**
      * 创建订单
      * <p>
@@ -69,101 +78,117 @@ public class OrderService {
      */
     @Transactional(rollbackFor = Exception.class)
     public List<OrderDO> createOrder(Long userId, Long addressId, List<OrderCreateItem> items, String remark) {
-        if (items == null || items.isEmpty()) {
-            throw new BizException(ErrorCode.PARAM_INVALID, "下单商品不能为空");
+        // 获取分布式锁，防止同一用户重复提交订单
+        String lockKey = "lock:order:create:" + userId;
+        boolean locked = idempotentLockService.tryLock(lockKey, Duration.ofSeconds(30));
+        if (!locked) {
+            LOGGER.warn("订单创建请求过于频繁，获取锁失败. userId={}", userId);
+            throw new BizException(ErrorCode.IDEMPOTENT_CONFLICT, "操作过于频繁，请稍后重试");
         }
 
-        // 构建收货信息快照（P0阶段简化处理，仅记录地址ID）
-        String receiverSnapshot;
         try {
-            receiverSnapshot = objectMapper.writeValueAsString(
-                    new java.util.HashMap<String, Object>() {{
-                        put("addressId", addressId);
-                        put("snapshotTime", LocalDateTime.now().toString());
-                    }}
-            );
-        } catch (JsonProcessingException e) {
-            throw new BizException(ErrorCode.INTERNAL_ERROR, "构建收货信息快照失败");
-        }
+            if (items == null || items.isEmpty()) {
+                throw new BizException(ErrorCode.PARAM_INVALID, "下单商品不能为空");
+            }
 
-        // P0 阶段简化：将所有商品归入同一个订单，merchantId 和 storeId 使用占位值
-        // 真实场景应通过 product-service 查询 SKU 所属商家和店铺
-        Long mockMerchantId = 1L;
-        Long mockStoreId = 1L;
-
-        // 生成订单号
-        String orderNo = generateOrderNo();
-
-        // 创建订单
-        OrderDO order = new OrderDO();
-        order.setId(idGenerator.nextId());
-        order.setOrderNo(orderNo);
-        order.setUserId(userId);
-        order.setMerchantId(mockMerchantId);
-        order.setStoreId(mockStoreId);
-        order.setOrderStatus(OrderStatusConstants.ORDER_CREATED);
-        order.setPayStatus(OrderStatusConstants.PAY_UNPAID);
-
-        // 计算金额
-        BigDecimal totalAmount = BigDecimal.ZERO;
-        List<OrderItemDO> orderItems = new ArrayList<>();
-        for (OrderCreateItem item : items) {
-            BigDecimal salePrice = BigDecimal.TEN; // P0 阶段使用固定单价 10 元
-            BigDecimal itemTotal = salePrice.multiply(BigDecimal.valueOf(item.getQuantity()));
-            totalAmount = totalAmount.add(itemTotal);
-
-            // 构建商品快照
-            String productSnapshot;
+            // 构建收货信息快照（P0阶段简化处理，仅记录地址ID）
+            String receiverSnapshot;
             try {
-                productSnapshot = objectMapper.writeValueAsString(
+                receiverSnapshot = objectMapper.writeValueAsString(
                         new java.util.HashMap<String, Object>() {{
-                            put("skuId", item.getSkuId());
-                            put("salePrice", salePrice);
+                            put("addressId", addressId);
                             put("snapshotTime", LocalDateTime.now().toString());
                         }}
                 );
             } catch (JsonProcessingException e) {
-                throw new BizException(ErrorCode.INTERNAL_ERROR, "构建商品快照失败");
+                throw new BizException(ErrorCode.INTERNAL_ERROR, "构建收货信息快照失败");
             }
 
-            OrderItemDO orderItem = new OrderItemDO();
-            orderItem.setId(idGenerator.nextId());
-            orderItem.setOrderId(order.getId());
-            orderItem.setOrderNo(orderNo);
-            orderItem.setProductId(0L); // P0 占位
-            orderItem.setSkuId(item.getSkuId());
-            orderItem.setProductSnapshot(productSnapshot);
-            orderItem.setQuantity(item.getQuantity());
-            orderItem.setSalePrice(salePrice);
-            orderItem.setTotalAmount(itemTotal);
-            orderItems.add(orderItem);
+            // P0 阶段简化：将所有商品归入同一个订单，merchantId 和 storeId 使用占位值
+            // 真实场景应通过 product-service 查询 SKU 所属商家和店铺
+            Long mockMerchantId = 1L;
+            Long mockStoreId = 1L;
+
+            // 生成订单号
+            String orderNo = generateOrderNo();
+
+            // 创建订单
+            OrderDO order = new OrderDO();
+            order.setId(idGenerator.nextId());
+            order.setOrderNo(orderNo);
+            order.setUserId(userId);
+            order.setMerchantId(mockMerchantId);
+            order.setStoreId(mockStoreId);
+            order.setOrderStatus(OrderStatusConstants.ORDER_CREATED);
+            order.setPayStatus(OrderStatusConstants.PAY_UNPAID);
+
+            // 计算金额
+            BigDecimal totalAmount = BigDecimal.ZERO;
+            List<OrderItemDO> orderItems = new ArrayList<>();
+            for (OrderCreateItem item : items) {
+                BigDecimal salePrice = BigDecimal.TEN; // P0 阶段使用固定单价 10 元
+                BigDecimal itemTotal = salePrice.multiply(BigDecimal.valueOf(item.getQuantity()));
+                totalAmount = totalAmount.add(itemTotal);
+
+                // 构建商品快照
+                String productSnapshot;
+                try {
+                    productSnapshot = objectMapper.writeValueAsString(
+                            new java.util.HashMap<String, Object>() {{
+                                put("skuId", item.getSkuId());
+                                put("salePrice", salePrice);
+                                put("snapshotTime", LocalDateTime.now().toString());
+                            }}
+                    );
+                } catch (JsonProcessingException e) {
+                    throw new BizException(ErrorCode.INTERNAL_ERROR, "构建商品快照失败");
+                }
+
+                OrderItemDO orderItem = new OrderItemDO();
+                orderItem.setId(idGenerator.nextId());
+                orderItem.setOrderId(order.getId());
+                orderItem.setOrderNo(orderNo);
+                orderItem.setProductId(0L); // P0 占位
+                orderItem.setSkuId(item.getSkuId());
+                orderItem.setProductSnapshot(productSnapshot);
+                orderItem.setQuantity(item.getQuantity());
+                orderItem.setSalePrice(salePrice);
+                orderItem.setTotalAmount(itemTotal);
+                orderItems.add(orderItem);
+            }
+
+            order.setTotalAmount(totalAmount);
+            order.setFreightAmount(BigDecimal.ZERO);
+            order.setDiscountAmount(BigDecimal.ZERO);
+            order.setPayableAmount(totalAmount);
+            order.setPaidAmount(BigDecimal.ZERO);
+            order.setReceiverSnapshot(receiverSnapshot);
+            order.setRemark(remark);
+
+            // 保存订单
+            orderRepository.insert(order);
+
+            // 保存订单明细
+            for (OrderItemDO orderItem : orderItems) {
+                orderItemRepository.insert(orderItem);
+            }
+
+            // 记录订单状态日志
+            recordStatusLog(order, null, OrderStatusConstants.ORDER_CREATED,
+                    OrderStatusConstants.OPERATOR_USER, userId, "用户下单", null);
+
+            LOGGER.info("订单创建成功. orderNo={}, userId={}, totalAmount={}", orderNo, userId, totalAmount);
+
+            // 发布订单创建事件，通知下游服务异步处理（库存预扣、积分计算等）
+            orderEventPublisher.publishOrderCreated(order);
+
+            List<OrderDO> result = new ArrayList<>();
+            result.add(order);
+            return result;
+        } finally {
+            // 释放分布式锁
+            idempotentLockService.unlock(lockKey);
         }
-
-        order.setTotalAmount(totalAmount);
-        order.setFreightAmount(BigDecimal.ZERO);
-        order.setDiscountAmount(BigDecimal.ZERO);
-        order.setPayableAmount(totalAmount);
-        order.setPaidAmount(BigDecimal.ZERO);
-        order.setReceiverSnapshot(receiverSnapshot);
-        order.setRemark(remark);
-
-        // 保存订单
-        orderRepository.insert(order);
-
-        // 保存订单明细
-        for (OrderItemDO orderItem : orderItems) {
-            orderItemRepository.insert(orderItem);
-        }
-
-        // 记录订单状态日志
-        recordStatusLog(order, null, OrderStatusConstants.ORDER_CREATED,
-                OrderStatusConstants.OPERATOR_USER, userId, "用户下单", null);
-
-        LOGGER.info("订单创建成功. orderNo={}, userId={}, totalAmount={}", orderNo, userId, totalAmount);
-
-        List<OrderDO> result = new ArrayList<>();
-        result.add(order);
-        return result;
     }
 
     /**
@@ -227,6 +252,9 @@ public class OrderService {
                 OrderStatusConstants.OPERATOR_USER, userId, reason, null);
 
         LOGGER.info("订单已取消. orderNo={}, reason={}", order.getOrderNo(), reason);
+
+        // 发布订单取消事件，通知下游服务异步处理（库存补偿、优惠券释放等）
+        orderEventPublisher.publishOrderCanceled(order.getId(), order.getOrderNo());
     }
 
     /**
@@ -259,6 +287,11 @@ public class OrderService {
                 OrderStatusConstants.OPERATOR_USER, userId, "用户确认收货", null);
 
         LOGGER.info("订单已确认收货. orderNo={}", order.getOrderNo());
+
+        /* 预留：确认收货后可根据业务需要发布订单完成事件
+         * 后续如需通知下游服务（如触发评价提醒、商家结算等），可在此处调用：
+         * orderEventPublisher.publishOrderCompleted(order.getId(), order.getOrderNo());
+         */
     }
 
     /**

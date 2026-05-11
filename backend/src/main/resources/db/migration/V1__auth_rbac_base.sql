@@ -171,6 +171,7 @@ CREATE TABLE IF NOT EXISTS operation_logs (
   operator_type VARCHAR(32) NOT NULL COMMENT 'USER, MERCHANT, PLATFORM, SYSTEM',
   operator_id BIGINT NULL COMMENT '操作人ID',
   operator_name VARCHAR(64) NULL COMMENT '操作人名称',
+  merchant_id BIGINT NULL COMMENT '商家ID',
   module_code VARCHAR(64) NOT NULL COMMENT '模块编码',
   action_code VARCHAR(64) NOT NULL COMMENT '动作编码',
   target_type VARCHAR(64) NOT NULL COMMENT '对象类型',
@@ -190,5 +191,7 @@ CREATE TABLE IF NOT EXISTS operation_logs (
   KEY idx_operation_logs_module (module_code, action_code),
   KEY idx_operation_logs_target (target_type, target_id),
   KEY idx_operation_logs_request (request_id),
-  KEY idx_operation_logs_created_at (created_at)
+  KEY idx_operation_logs_created_at (created_at),
+  KEY idx_operation_logs_module_action_time (module_code, action_code, created_at),
+  CONSTRAINT fk_operation_logs_merchant FOREIGN KEY (merchant_id) REFERENCES merchants (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='后台操作日志表';

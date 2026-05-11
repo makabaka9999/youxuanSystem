@@ -118,9 +118,11 @@ CREATE TABLE IF NOT EXISTS merchant_staffs (
   id BIGINT NOT NULL COMMENT '商家员工ID',
   merchant_id BIGINT NOT NULL COMMENT '商家ID',
   user_id BIGINT NOT NULL COMMENT '用户ID',
+  staff_name VARCHAR(64) NOT NULL COMMENT '员工姓名',
   role_type VARCHAR(32) NOT NULL COMMENT 'OWNER, STAFF',
-  menu_permissions JSON NULL COMMENT '菜单权限',
+  menu_permissions JSON NULL COMMENT '菜单权限编码列表',
   status VARCHAR(32) NOT NULL DEFAULT 'ENABLED' COMMENT 'ENABLED, DISABLED',
+  last_login_at DATETIME(3) NULL COMMENT '最后登录时间',
   remark VARCHAR(500) NULL COMMENT '备注',
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
@@ -157,6 +159,7 @@ CREATE TABLE IF NOT EXISTS products (
   KEY idx_products_merchant_status (merchant_id, sale_status, audit_status),
   KEY idx_products_category (category_id),
   KEY idx_products_name (product_name),
+  FULLTEXT KEY ft_products_search (product_name, detail_html),
   CONSTRAINT fk_products_merchant FOREIGN KEY (merchant_id) REFERENCES merchants (id),
   CONSTRAINT fk_products_store FOREIGN KEY (store_id) REFERENCES stores (id),
   CONSTRAINT fk_products_category FOREIGN KEY (category_id) REFERENCES categories (id)
@@ -181,7 +184,8 @@ CREATE TABLE IF NOT EXISTS product_skus (
   KEY idx_skus_product (product_id),
   CONSTRAINT fk_skus_product FOREIGN KEY (product_id) REFERENCES products (id),
   CHECK (sale_price >= 0),
-  CHECK (original_price >= 0)
+  CHECK (original_price >= 0),
+  CHECK (sale_price <= original_price)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商品SKU表';
 
 CREATE TABLE IF NOT EXISTS sku_inventories (
@@ -242,7 +246,6 @@ CREATE TABLE IF NOT EXISTS carts (
   version INT NOT NULL DEFAULT 0 COMMENT '乐观锁版本',
   PRIMARY KEY (id),
   UNIQUE KEY uk_cart_user_sku (user_id, sku_id),
-  KEY idx_cart_user (user_id),
   KEY idx_cart_store (store_id),
   CONSTRAINT fk_cart_user FOREIGN KEY (user_id) REFERENCES users (id),
   CONSTRAINT fk_cart_store FOREIGN KEY (store_id) REFERENCES stores (id),
@@ -281,6 +284,8 @@ CREATE TABLE IF NOT EXISTS orders (
   KEY idx_orders_store_status (store_id, order_status),
   KEY idx_orders_merchant_time (merchant_id, created_at),
   KEY idx_orders_pay_status (pay_status),
+  KEY idx_orders_status_created (order_status, created_at),
+  KEY idx_orders_merchant_status_time (merchant_id, order_status, created_at),
   CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users (id),
   CONSTRAINT fk_orders_merchant FOREIGN KEY (merchant_id) REFERENCES merchants (id),
   CONSTRAINT fk_orders_store FOREIGN KEY (store_id) REFERENCES stores (id),
@@ -302,6 +307,8 @@ CREATE TABLE IF NOT EXISTS order_items (
   sale_price DECIMAL(18,2) NOT NULL DEFAULT 0.00 COMMENT '成交单价',
   total_amount DECIMAL(18,2) NOT NULL DEFAULT 0.00 COMMENT '明细总额',
   refund_status VARCHAR(32) NOT NULL DEFAULT 'NONE' COMMENT 'NONE, REFUNDING, REFUNDED, PART_REFUNDED',
+  refunded_amount DECIMAL(18,2) NOT NULL DEFAULT 0.00 COMMENT '已退款金额',
+  refundable_amount DECIMAL(18,2) NOT NULL DEFAULT 0.00 COMMENT '可退金额',
   status VARCHAR(32) NOT NULL DEFAULT 'ENABLED' COMMENT 'ENABLED, DISABLED',
   remark VARCHAR(500) NULL COMMENT '备注',
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -312,12 +319,16 @@ CREATE TABLE IF NOT EXISTS order_items (
   KEY idx_order_items_order (order_id),
   KEY idx_order_items_order_no (order_no),
   KEY idx_order_items_sku (sku_id),
+  KEY idx_order_items_product (product_id),
   CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES orders (id),
   CONSTRAINT fk_order_items_product FOREIGN KEY (product_id) REFERENCES products (id),
   CONSTRAINT fk_order_items_sku FOREIGN KEY (sku_id) REFERENCES product_skus (id),
   CHECK (quantity > 0),
   CHECK (sale_price >= 0),
-  CHECK (total_amount >= 0)
+  CHECK (total_amount >= 0),
+  CHECK (refunded_amount >= 0),
+  CHECK (refundable_amount >= 0),
+  CHECK (refunded_amount <= refundable_amount)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='订单明细表';
 
 CREATE TABLE IF NOT EXISTS order_status_logs (
@@ -365,10 +376,11 @@ CREATE TABLE IF NOT EXISTS payment_orders (
   UNIQUE KEY uk_payment_idempotent (idempotent_key),
   UNIQUE KEY uk_payment_third_trade (channel, third_trade_no),
   KEY idx_payment_status (pay_status),
+  KEY idx_payment_channel_status (channel, pay_status),
   KEY idx_payment_user (user_id),
   CONSTRAINT fk_payment_order FOREIGN KEY (order_id) REFERENCES orders (id),
   CONSTRAINT fk_payment_user FOREIGN KEY (user_id) REFERENCES users (id),
-  CHECK (pay_amount >= 0)
+  CHECK (pay_amount > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='支付单表';
 
 CREATE TABLE IF NOT EXISTS after_sales (
@@ -403,7 +415,8 @@ CREATE TABLE IF NOT EXISTS after_sales (
   CONSTRAINT fk_after_sales_user FOREIGN KEY (user_id) REFERENCES users (id),
   CONSTRAINT fk_after_sales_merchant FOREIGN KEY (merchant_id) REFERENCES merchants (id),
   CHECK (apply_amount >= 0),
-  CHECK (approved_amount >= 0)
+  CHECK (approved_amount >= 0),
+  CHECK (approved_amount <= apply_amount)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='售后单表';
 
 CREATE TABLE IF NOT EXISTS return_shipments (
@@ -428,6 +441,7 @@ CREATE TABLE IF NOT EXISTS return_shipments (
 CREATE TABLE IF NOT EXISTS refund_orders (
   id BIGINT NOT NULL COMMENT '退款单ID',
   refund_no VARCHAR(64) NOT NULL COMMENT '退款单号',
+  payment_id BIGINT NOT NULL COMMENT '支付单ID',
   payment_no VARCHAR(64) NOT NULL COMMENT '支付单号',
   order_id BIGINT NOT NULL COMMENT '订单ID',
   after_sale_id BIGINT NOT NULL COMMENT '售后单ID',
@@ -450,9 +464,10 @@ CREATE TABLE IF NOT EXISTS refund_orders (
   KEY idx_refund_after_sale (after_sale_id),
   KEY idx_refund_status (refund_status),
   KEY idx_refund_payment_no (payment_no),
+  CONSTRAINT fk_refund_payment FOREIGN KEY (payment_id) REFERENCES payment_orders (id),
   CONSTRAINT fk_refund_order FOREIGN KEY (order_id) REFERENCES orders (id),
   CONSTRAINT fk_refund_after_sale FOREIGN KEY (after_sale_id) REFERENCES after_sales (id),
-  CHECK (refund_amount >= 0)
+  CHECK (refund_amount > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='退款单表';
 
 CREATE TABLE IF NOT EXISTS order_shipments (
@@ -608,7 +623,7 @@ CREATE TABLE IF NOT EXISTS withdraw_orders (
   CONSTRAINT fk_withdraw_account FOREIGN KEY (account_id) REFERENCES merchant_settlement_accounts (id),
   CONSTRAINT fk_withdraw_settlement FOREIGN KEY (settlement_id) REFERENCES settlement_orders (id),
   CONSTRAINT fk_withdraw_audit_user FOREIGN KEY (audit_user_id) REFERENCES users (id),
-  CHECK (amount >= 0)
+  CHECK (amount > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='提现单表';
 
 CREATE TABLE IF NOT EXISTS account_flow_records (
@@ -619,6 +634,7 @@ CREATE TABLE IF NOT EXISTS account_flow_records (
   biz_no VARCHAR(64) NOT NULL COMMENT '业务单号',
   direction VARCHAR(32) NOT NULL COMMENT 'IN, OUT, FREEZE, UNFREEZE',
   amount DECIMAL(18,2) NOT NULL DEFAULT 0.00 COMMENT '发生金额',
+  balance_before DECIMAL(18,2) NOT NULL DEFAULT 0.00 COMMENT '变动前余额',
   balance_after DECIMAL(18,2) NOT NULL DEFAULT 0.00 COMMENT '变动后余额',
   frozen_after DECIMAL(18,2) NOT NULL DEFAULT 0.00 COMMENT '变动后冻结金额',
   status VARCHAR(32) NOT NULL DEFAULT 'SUCCESS' COMMENT 'SUCCESS, FAILED',
@@ -630,7 +646,7 @@ CREATE TABLE IF NOT EXISTS account_flow_records (
   version INT NOT NULL DEFAULT 0 COMMENT '乐观锁版本',
   PRIMARY KEY (id),
   UNIQUE KEY uk_flow_no (flow_no),
-  UNIQUE KEY uk_flow_biz (biz_type, biz_no, direction),
+  KEY idx_flow_biz (biz_type, biz_no, direction),
   KEY idx_flow_merchant_time (merchant_id, occurred_at),
   CONSTRAINT fk_flow_merchant FOREIGN KEY (merchant_id) REFERENCES merchants (id),
   CHECK (amount >= 0)
@@ -716,17 +732,20 @@ CREATE TABLE IF NOT EXISTS idempotent_records (
 
 CREATE TABLE IF NOT EXISTS operation_logs (
   id BIGINT NOT NULL COMMENT '操作日志ID',
-  request_id VARCHAR(64) NOT NULL COMMENT '请求ID',
+  request_id VARCHAR(64) NULL COMMENT '请求ID',
   operator_type VARCHAR(32) NOT NULL COMMENT 'USER, MERCHANT, PLATFORM, SYSTEM',
   operator_id BIGINT NULL COMMENT '操作人ID',
+  operator_name VARCHAR(64) NULL COMMENT '操作人名称',
   merchant_id BIGINT NULL COMMENT '商家ID',
-  module VARCHAR(64) NOT NULL COMMENT '模块',
-  action VARCHAR(64) NOT NULL COMMENT '动作',
+  module_code VARCHAR(64) NOT NULL COMMENT '模块编码',
+  action_code VARCHAR(64) NOT NULL COMMENT '动作编码',
+  target_type VARCHAR(64) NULL COMMENT '对象类型',
+  target_id VARCHAR(64) NULL COMMENT '对象ID',
   biz_type VARCHAR(64) NULL COMMENT '业务类型',
   biz_no VARCHAR(64) NULL COMMENT '业务单号',
   before_snapshot JSON NULL COMMENT '操作前状态',
   after_snapshot JSON NULL COMMENT '操作后状态',
-  ip VARCHAR(64) NULL COMMENT 'IP',
+  request_ip VARCHAR(64) NULL COMMENT '请求IP',
   user_agent VARCHAR(500) NULL COMMENT 'User-Agent',
   result VARCHAR(32) NOT NULL DEFAULT 'SUCCESS' COMMENT 'SUCCESS, FAILED',
   fail_reason VARCHAR(500) NULL COMMENT '失败原因',
@@ -741,9 +760,25 @@ CREATE TABLE IF NOT EXISTS operation_logs (
   KEY idx_operation_operator (operator_type, operator_id),
   KEY idx_operation_biz (biz_type, biz_no),
   KEY idx_operation_merchant (merchant_id),
-  KEY idx_operation_time (created_at),
-  CONSTRAINT fk_operation_operator FOREIGN KEY (operator_id) REFERENCES users (id),
-  CONSTRAINT fk_operation_merchant FOREIGN KEY (merchant_id) REFERENCES merchants (id)
+  KEY idx_operation_target (target_type, target_id),
+  KEY idx_operation_module_action_time (module_code, action_code, created_at),
+  KEY idx_operation_time (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='操作日志表';
+
+CREATE TABLE IF NOT EXISTS system_configs (
+  id BIGINT NOT NULL COMMENT '配置ID',
+  config_key VARCHAR(128) NOT NULL COMMENT '配置键',
+  config_value VARCHAR(2000) NOT NULL COMMENT '配置值',
+  config_desc VARCHAR(500) NULL COMMENT '配置说明',
+  status VARCHAR(32) NOT NULL DEFAULT 'ENABLED' COMMENT 'ENABLED, DISABLED',
+  remark VARCHAR(500) NULL COMMENT '备注',
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  deleted_at DATETIME(3) NULL COMMENT '软删除时间',
+  version INT NOT NULL DEFAULT 0 COMMENT '乐观锁版本',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_config_key (config_key),
+  KEY idx_config_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='系统配置表';
 
 SET FOREIGN_KEY_CHECKS = 1;

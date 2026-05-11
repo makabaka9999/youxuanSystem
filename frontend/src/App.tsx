@@ -6,6 +6,7 @@ import {
   Home,
   LayoutDashboard,
   LogOut,
+  Menu,
   PackageSearch,
   ReceiptText,
   RotateCcw,
@@ -18,7 +19,7 @@ import {
 } from "lucide-react";
 import { fetchBackendHealth, type BackendHealth } from "./api/backendClient";
 import { api } from "./api/mockApi";
-import { LoadingScreen } from "./components";
+import { LoadingScreen, ToastContainer } from "./components";
 import { AdminPortal } from "./pages/AdminPortal";
 import { LoginPage } from "./pages/LoginPage";
 import { MerchantPortal } from "./pages/MerchantPortal";
@@ -101,7 +102,9 @@ const portalMeta = {
 export function App() {
   const [auth, setAuth] = useState<AuthState | null>(loadAuth);
   const [portal, setPortal] = useState<Portal>(auth ? portalFromAuth(auth) : "admin");
+  const [activeNav, setActiveNav] = useState<string>("home");
   const [data, setData] = useState<AppData | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [backendHealth, setBackendHealth] = useState<BackendHealth>({ connected: false, status: "CHECKING" });
 
   useEffect(() => {
@@ -114,13 +117,20 @@ export function App() {
 
   const handleLoginSuccess = useCallback((newAuth: AuthState) => {
     setAuth(newAuth);
-    setPortal(portalFromAuth(newAuth));
+    const p = portalFromAuth(newAuth);
+    setPortal(p);
+    setActiveNav(portalMeta[p].nav[0].id);
   }, []);
 
   const handleLogout = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
     setAuth(null);
     setData(null);
+  }, []);
+
+  const switchPortal = useCallback((p: Portal) => {
+    setPortal(p);
+    setActiveNav(portalMeta[p].nav[0].id);
   }, []);
 
   if (!auth) {
@@ -133,112 +143,127 @@ export function App() {
   const nav = useMemo(() => active.nav, [active.nav]);
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-mark">优</div>
-          <div>
-            <strong>优选</strong>
-            <span>多商户电商平台</span>
-          </div>
-        </div>
+    <>
+      <a href="#main-content" className="skip-nav">跳转到主要内容</a>
+      <ToastContainer />
 
-        <div className="portal-switcher" role="tablist" aria-label="切换端">
-          {(["user", "merchant", "admin"] as Portal[]).map((item) => (
-            <button
-              className={portal === item ? "active" : ""}
-              key={item}
-              type="button"
-              onClick={() => setPortal(item)}
-            >
-              {portalMeta[item].title}
-              <span style={{ marginLeft: 'auto', fontSize: 11, opacity: 0.4 }}>{portalMeta[item].role.slice(0, 4)}</span>
-            </button>
-          ))}
-        </div>
+      <button className="mobile-menu-toggle" type="button" onClick={() => setSidebarOpen(o => !o)} aria-label="切换菜单">
+        <Menu size={18} />
+        菜单
+      </button>
 
-        <nav className="side-nav">
-          {nav.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button className={item.id === nav[0].id ? "active" : ""} key={item.id} type="button">
-                <Icon size={18} />
-                {item.label}
-              </button>
-            );
-          })}
-        </nav>
-
-        <div className="sidebar-spacer" />
-
-        <div className="sidebar-user">
-          <div className="sidebar-user-avatar">
-            {auth.currentPrincipal?.displayName?.charAt(0) || "?"}
-          </div>
-          <div className="sidebar-user-info">
-            <span className="sidebar-user-name">{auth.currentPrincipal?.displayName || "用户"}</span>
-            <span className="sidebar-user-role">{active.role}</span>
-          </div>
-          <button
-            type="button"
-            className="sidebar-logout"
-            aria-label="退出登录"
-            onClick={handleLogout}
-            title="退出登录"
-          >
-            <LogOut size={16} />
-          </button>
-        </div>
-      </aside>
-
-      <main className="main-shell">
-        <header className="topbar">
-          <div>
-            <span className="eyebrow">{active.subtitle}</span>
-            <h1>{active.title}</h1>
-          </div>
-          <div className="topbar-actions">
-            <div className="env-pill">Mock API · /api/v1</div>
-            <div className={`env-pill ${backendHealth.connected ? "backend-online" : "backend-offline"}`}>
-              后端 {backendHealth.connected ? "已连接" : "未连接"} · {backendHealth.status}
+      <div className="app-shell">
+        <aside className={`sidebar ${sidebarOpen ? "sidebar-open" : ""}`}>
+          <div className="brand">
+            <div className="brand-mark">优</div>
+            <div>
+              <strong>优选</strong>
+              <span>多商户电商平台</span>
             </div>
-            <div className="role-pill">{active.role}</div>
           </div>
-        </header>
 
-        {portal === "user" ? (
-          <UserPortal
-            metrics={data.user.metrics}
-            products={data.user.products}
-            cartItems={data.user.cartItems}
-            orders={data.user.orders}
-            afterSales={data.user.afterSales}
-          />
-        ) : null}
+          <div className="portal-switcher" role="tablist" aria-label="切换端">
+            {(["user", "merchant", "admin"] as Portal[]).map((item) => (
+              <button
+                className={portal === item ? "active" : ""}
+                key={item}
+                type="button"
+                onClick={() => { switchPortal(item); setSidebarOpen(false); }}
+              >
+                {portalMeta[item].title}
+                <span style={{ marginLeft: 'auto', fontSize: 11, opacity: 0.4 }}>{portalMeta[item].role.slice(0, 4)}</span>
+              </button>
+            ))}
+          </div>
 
-        {portal === "merchant" ? (
-          <MerchantPortal
-            metrics={data.merchant.metrics}
-            products={data.merchant.products}
-            orders={data.merchant.orders}
-            afterSales={data.merchant.afterSales}
-            settlements={data.merchant.settlements}
-          />
-        ) : null}
+          <nav className="side-nav" role="navigation" aria-label="主导航">
+            {nav.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  className={item.id === activeNav ? "active" : ""}
+                  key={item.id}
+                  type="button"
+                  onClick={() => { setActiveNav(item.id); setSidebarOpen(false); }}
+                >
+                  <Icon size={18} />
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
 
-        {portal === "admin" ? (
-          <AdminPortal
-            metrics={data.admin.metrics}
-            merchants={data.admin.merchants}
-            products={data.admin.products}
-            orders={data.admin.orders}
-            afterSales={data.admin.afterSales}
-            settlements={data.admin.settlements}
-            exceptions={data.admin.exceptions}
-            operationLogs={data.admin.operationLogs}
-          />
-        ) : null}
-      </main>
-    </div>
+          <div className="sidebar-spacer" />
+
+          <div className="sidebar-user">
+            <div className="sidebar-user-avatar">
+              {auth.currentPrincipal?.displayName?.charAt(0) || "?"}
+            </div>
+            <div className="sidebar-user-info">
+              <span className="sidebar-user-name">{auth.currentPrincipal?.displayName || "用户"}</span>
+              <span className="sidebar-user-role">{active.role}</span>
+            </div>
+            <button
+              type="button"
+              className="sidebar-logout"
+              aria-label="退出登录"
+              onClick={handleLogout}
+              title="退出登录"
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
+        </aside>
+
+        <main className="main-shell" id="main-content">
+          <header className="topbar">
+            <div>
+              <span className="eyebrow">{active.subtitle}</span>
+              <h1>{active.title}</h1>
+            </div>
+            <div className="topbar-actions">
+              <div className="env-pill">Mock API · /api/v1</div>
+              <div className={`env-pill ${backendHealth.connected ? "backend-online" : "backend-offline"}`}>
+                后端 {backendHealth.connected ? "已连接" : "未连接"} · {backendHealth.status}
+              </div>
+              <div className="role-pill">{active.role}</div>
+            </div>
+          </header>
+
+          {portal === "user" ? (
+            <UserPortal
+              metrics={data.user.metrics}
+              products={data.user.products}
+              cartItems={data.user.cartItems}
+              orders={data.user.orders}
+              afterSales={data.user.afterSales}
+            />
+          ) : null}
+
+          {portal === "merchant" ? (
+            <MerchantPortal
+              metrics={data.merchant.metrics}
+              products={data.merchant.products}
+              orders={data.merchant.orders}
+              afterSales={data.merchant.afterSales}
+              settlements={data.merchant.settlements}
+            />
+          ) : null}
+
+          {portal === "admin" ? (
+            <AdminPortal
+              metrics={data.admin.metrics}
+              merchants={data.admin.merchants}
+              products={data.admin.products}
+              orders={data.admin.orders}
+              afterSales={data.admin.afterSales}
+              settlements={data.admin.settlements}
+              exceptions={data.admin.exceptions}
+              operationLogs={data.admin.operationLogs}
+            />
+          ) : null}
+        </main>
+      </div>
+    </>
   );
 }

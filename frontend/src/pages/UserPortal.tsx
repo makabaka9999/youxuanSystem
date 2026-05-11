@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CreditCard, Minus, PackageCheck, Plus, RotateCcw, ShoppingBag, ShoppingCart, Trash2, UserRound } from "lucide-react";
 import { afterSaleStatusMap, orderStatusMap, productStatusMap } from "../domain";
-import { Card, DataTable, MetricGrid, PrimaryButton, SectionHeader, StatusTag } from "../components";
+import { AmountText, Card, DataTable, MetricGrid, PrimaryButton, SectionHeader, StatusTag } from "../components";
 import type { AfterSale, CartItem, Metric, Order, Product } from "../types";
 
 type UserPortalProps = {
@@ -58,8 +58,12 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
           <h1>从浏览到售后，一条链路完成交易闭环</h1>
           <p>商品、购物车、拆单结算、支付结果、物流和售后进度都在同一工作流里处理。</p>
           <div className="hero-actions">
-            <PrimaryButton>创建订单</PrimaryButton>
+            <button className="primary-button" type="button">
+              <ShoppingBag size={16} />
+              浏览商品
+            </button>
             <button className="secondary-button" type="button">
+              <RotateCcw size={16} />
               查看售后
             </button>
           </div>
@@ -68,15 +72,15 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
           <div className="phone-top" />
           <div className="phone-card">
             <div className="phone-title">待处理</div>
-            <div className="phone-row">
+            <div className="phone-row" style={{ cursor: "pointer" }}>
               <ShoppingCart size={18} />
-              购物车已选 {selectedCount} 件，合计 ¥{selectedTotal}
+              购物车已选 <strong style={{ color: "#fff", marginLeft: 4 }}>{selectedCount}</strong> 件
             </div>
-            <div className="phone-row">
+            <div className="phone-row" style={{ cursor: "pointer" }}>
               <PackageCheck size={18} />
               1 个包裹运输中
             </div>
-            <div className="phone-row">
+            <div className="phone-row" style={{ cursor: "pointer" }}>
               <RotateCcw size={18} />
               2 个售后正在处理
             </div>
@@ -97,7 +101,7 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
                   <div className="product-name">{product.name}</div>
                   <div className="muted">{product.storeName}</div>
                   <div className="product-meta">
-                    <strong>¥{product.price}</strong>
+                    <AmountText value={product.price} />
                     <StatusTag {...productStatusMap[product.status]} />
                   </div>
                 </div>
@@ -122,7 +126,7 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
                   <p>{item.storeName} · {item.skuName}</p>
                 </div>
                 <div className="cart-price">
-                  ¥{item.price}
+                  <AmountText value={item.price} />
                   <div className="quantity-stepper" aria-label={`${item.productName} 数量`}>
                     <button type="button" aria-label="减少数量" onClick={() => changeQuantity(item.id, item.quantity - 1)}>
                       <Minus size={14} />
@@ -141,8 +145,8 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
             {editableCartItems.length === 0 ? <div className="empty-cart">购物车暂无商品</div> : null}
           </div>
           <div className="settle-bar">
-            <span>已选 {selectedCount} 件，按店铺拆分订单</span>
-            <strong>¥{selectedTotal}</strong>
+            <span>已选 <strong>{selectedCount}</strong> 件，按店铺拆分订单</span>
+            <AmountText value={selectedTotal} />
           </div>
         </Card>
       </section>
@@ -155,7 +159,7 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
             rows={orders.map((order) => [
               <span className="mono">{order.orderNo}</span>,
               order.storeName,
-              `¥${order.amount}`,
+              <AmountText value={order.amount} />,
               <StatusTag {...orderStatusMap[order.status]} />,
               <ActionByOrder status={order.status} />
             ])}
@@ -174,7 +178,7 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
                     <StatusTag {...afterSaleStatusMap[item.status]} />
                   </div>
                   <p>{item.reason}</p>
-                  <small>订单 {item.orderNo} · 截止 {item.deadline} · 金额 ¥{item.amount}</small>
+                  <small>订单 {item.orderNo} · 截止 {item.deadline}</small>
                 </div>
               </div>
             ))}
@@ -196,7 +200,7 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
             const FlowIcon = Icon as typeof UserRound;
             return (
               <div className="flow-step" key={label as string}>
-                <FlowIcon size={18} />
+                <FlowIcon size={20} />
                 <span>{label as string}</span>
               </div>
             );
@@ -208,9 +212,9 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
 }
 
 function ActionByOrder({ status }: { status: Order["status"] }) {
-  if (status === "PENDING_PAYMENT") return <button className="link-button">去支付</button>;
-  if (status === "PAID") return <button className="link-button">申请退款</button>;
-  if (status === "SHIPPED") return <button className="link-button">确认收货</button>;
-  if (status === "EXCEPTION") return <button className="link-button danger-text">查看异常</button>;
-  return <button className="link-button">查看</button>;
+  if (status === "PENDING_PAYMENT") return <button className="link-button" type="button">去支付</button>;
+  if (status === "PAID") return <button className="link-button" type="button">申请退款</button>;
+  if (status === "SHIPPED") return <button className="link-button" type="button">确认收货</button>;
+  if (status === "EXCEPTION") return <button className="link-button danger-text" type="button">查看异常</button>;
+  return <button className="link-button" type="button">查看</button>;
 }

@@ -7,7 +7,7 @@ import {
   productStatusMap,
   settlementStatusMap
 } from "../domain";
-import { Card, DataTable, DangerButton, MetricGrid, PrimaryButton, SectionHeader, StatusTag, Toolbar, SearchInput } from "../components";
+import { AmountText, Card, DataTable, MetricGrid, SectionHeader, StatusTag, Toolbar, SearchInput } from "../components";
 import type { AfterSale, ExceptionRecord, Merchant, Metric, OperationLog, Order, Product, Settlement } from "../types";
 
 type AdminPortalProps = {
@@ -39,8 +39,14 @@ export function AdminPortal({
           <h1>审核、异常、财务和审计都能被平台看见</h1>
           <p>后台以队列和池子驱动，保障支付异常、退款失败、对账差异不会被静默吞掉。</p>
           <div className="hero-actions">
-            <PrimaryButton>审核结算单</PrimaryButton>
-            <DangerButton>处理异常池</DangerButton>
+            <button className="primary-button" type="button">
+              <BadgeCheck size={16} />
+              审核结算单
+            </button>
+            <button className="danger-button" type="button">
+              <ShieldAlert size={16} />
+              处理异常池
+            </button>
           </div>
         </div>
         <div className="risk-board">
@@ -109,7 +115,7 @@ export function AdminPortal({
                 <div className="exception-icon"><AlertTriangle size={18} /></div>
                 <div>
                   <strong>{item.title}</strong>
-                  <p>{item.type} · {item.relatedNo} · ¥{item.amount}</p>
+                  <p>{item.type} · {item.relatedNo} · <AmountText value={item.amount} /></p>
                   <small>{item.createdAt}</small>
                 </div>
                 <StatusTag label={item.status === "RESOLVED" ? "已处理" : item.status === "PROCESSING" ? "处理中" : "待处理"} tone={item.status === "RESOLVED" ? "success" : item.status === "PROCESSING" ? "warning" : "danger"} />
@@ -126,7 +132,7 @@ export function AdminPortal({
               <span className="mono">{settlement.settlementNo}</span>,
               settlement.merchantName,
               settlement.period,
-              `¥${settlement.payableAmount}`,
+              <AmountText value={settlement.payableAmount} />,
               <StatusTag {...settlementStatusMap[settlement.status]} />,
               <button className="link-button">{settlement.status === "PENDING_AUDIT" ? "审核" : "详情"}</button>
             ])}
@@ -143,14 +149,14 @@ export function AdminPortal({
               ...orders.slice(0, 3).map((order) => [
                 <span className="mono">{order.orderNo}</span>,
                 order.storeName,
-                `¥${order.amount}`,
+                <AmountText value={order.amount} />,
                 <StatusTag {...orderStatusMap[order.status]} />,
                 <button className="link-button">订单详情</button>
               ]),
               ...afterSales.map((item) => [
                 <span className="mono">{item.afterSaleNo}</span>,
                 item.storeName,
-                `¥${item.amount}`,
+                <AmountText value={item.amount} />,
                 <StatusTag {...afterSaleStatusMap[item.status]} />,
                 <button className="link-button">介入处理</button>
               ])

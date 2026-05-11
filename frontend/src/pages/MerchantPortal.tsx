@@ -1,6 +1,6 @@
 import { Banknote, Boxes, ClipboardCheck, PackageOpen, ShieldCheck, Truck, UsersRound } from "lucide-react";
 import { afterSaleStatusMap, orderStatusMap, productStatusMap, settlementStatusMap } from "../domain";
-import { Card, DataTable, MetricGrid, PrimaryButton, SectionHeader, StatusTag, Toolbar, SearchInput } from "../components";
+import { AmountText, Card, DataTable, MetricGrid, SectionHeader, StatusTag, Toolbar, SearchInput } from "../components";
 import type { AfterSale, Metric, Order, Product, Settlement } from "../types";
 
 type MerchantPortalProps = {
@@ -20,8 +20,14 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
           <h1>商品、履约、售后、资金都围绕店铺工作台展开</h1>
           <p>冻结状态下仍保留已支付订单履约能力，财务动作和员工权限独立管控。</p>
           <div className="hero-actions">
-            <PrimaryButton>发布商品</PrimaryButton>
-            <button className="secondary-button" type="button">处理发货</button>
+            <button className="primary-button" type="button">
+              <Boxes size={16} />
+              发布商品
+            </button>
+            <button className="secondary-button" type="button">
+              <Truck size={16} />
+              处理发货
+            </button>
           </div>
         </div>
         <div className="merchant-summary">
@@ -70,7 +76,7 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
             rows={orders.map((order) => [
               <span className="mono">{order.orderNo}</span>,
               order.userName,
-              `¥${order.amount}`,
+              <AmountText value={order.amount} />,
               <StatusTag {...orderStatusMap[order.status]} />,
               <MerchantOrderAction status={order.status} />
             ])}
@@ -105,7 +111,7 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
             rows={settlements.map((settlement) => [
               <span className="mono">{settlement.settlementNo}</span>,
               settlement.period,
-              `¥${settlement.payableAmount}`,
+              <AmountText value={settlement.payableAmount} />,
               <StatusTag {...settlementStatusMap[settlement.status]} />,
               <button className="link-button">{settlement.status === "APPROVED" ? "申请提现" : "查看"}</button>
             ])}

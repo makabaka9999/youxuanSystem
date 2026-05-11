@@ -977,3 +977,509 @@ Header：必须包含 `X-Request-Id`、`X-Idempotency-Key`。
 - 订单状态变化必须写入 `order_status_logs`。
 - 支付、退款、提现、结算、冻结、解冻必须写入 `account_flow_records`。
 - 日志至少保留 180 天，账务和审计数据长期保留。
+
+## 11. 数据库核心表结构
+
+### 11.1 用户端表
+
+**`users` — 用户表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| mobile | VARCHAR(20) | 手机号，唯一索引 |
+| nickname | VARCHAR(64) | 昵称 |
+| avatar_url | VARCHAR(512) | 头像 URL |
+| status | VARCHAR(32) | NORMAL / DISABLED |
+| deleted_at | DATETIME | 软删除时间 |
+| created_at | DATETIME | 创建时间 |
+| updated_at | DATETIME | 更新时间 |
+| version | INT | 乐观锁 |
+
+**`user_addresses` — 收货地址表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| user_id | BIGINT | 用户 ID，索引 |
+| receiver_name | VARCHAR(64) | 收货人姓名 |
+| receiver_mobile | VARCHAR(20) | 收货人手机号 |
+| province | VARCHAR(32) | 省 |
+| city | VARCHAR(32) | 市 |
+| district | VARCHAR(32) | 区 |
+| detail_address | VARCHAR(256) | 详细地址 |
+| is_default | TINYINT | 是否默认地址 |
+| deleted_at | DATETIME | 软删除时间 |
+
+### 11.2 商品与类目表
+
+**`categories` — 类目表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| parent_id | BIGINT | 父类目 ID，0 为根 |
+| name | VARCHAR(64) | 类目名称 |
+| level | TINYINT | 层级 1/2/3 |
+| sort_order | INT | 排序 |
+| status | VARCHAR(32) | ENABLED / DISABLED |
+
+**`products` — 商品表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| merchant_id | BIGINT | 商家 ID，索引 |
+| store_id | BIGINT | 店铺 ID，索引 |
+| category_id | BIGINT | 类目 ID |
+| product_name | VARCHAR(256) | 商品名称 |
+| main_image_url | VARCHAR(512) | 主图 URL |
+| detail_html | TEXT | 商品详情 HTML |
+| audit_status | VARCHAR(32) | PENDING / APPROVED / REJECTED |
+| sale_status | VARCHAR(32) | ON_SALE / OFF_SALE |
+| deleted_at | DATETIME | 软删除时间 |
+
+**`product_skus` — SKU 表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| product_id | BIGINT | 商品 ID，索引 |
+| sku_name | VARCHAR(128) | SKU 名称 |
+| sku_attrs | JSON | SKU 属性键值对 |
+| sale_price | DECIMAL(18,2) | 售价 |
+| original_price | DECIMAL(18,2) | 原价 |
+| total_stock | INT | 总库存 |
+| locked_stock | INT | 锁定库存（已下单未支付） |
+| available_stock | INT | 可用库存（total_stock - locked_stock） |
+| status | VARCHAR(32) | ENABLED / DISABLED |
+
+### 11.3 购物车与订单表
+
+**`cart_items` — 购物车项表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| user_id | BIGINT | 用户 ID，索引 |
+| sku_id | BIGINT | SKU ID，索引 |
+| quantity | INT | 数量 |
+| checked | TINYINT | 是否勾选 |
+
+**`orders` — 订单表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| order_no | VARCHAR(64) | 订单号，唯一索引 |
+| user_id | BIGINT | 用户 ID，索引 |
+| merchant_id | BIGINT | 商家 ID，索引 |
+| store_id | BIGINT | 店铺 ID |
+| order_status | VARCHAR(32) | CREATED / PAID / SHIPPED / COMPLETED / CANCELED / REFUNDING / CLOSED |
+| pay_status | VARCHAR(32) | UNPAID / PAID / REFUNDING / REFUNDED |
+| total_amount | DECIMAL(18,2) | 商品总金额 |
+| freight_amount | DECIMAL(18,2) | 运费 |
+| discount_amount | DECIMAL(18,2) | 优惠金额 |
+| payable_amount | DECIMAL(18,2) | 应付金额（total + freight - discount）|
+| paid_amount | DECIMAL(18,2) | 实付金额 |
+| paid_at | DATETIME | 支付时间 |
+| remark | VARCHAR(512) | 用户备注 |
+| deleted_at | DATETIME | 软删除时间 |
+
+**`order_items` — 订单项表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| order_id | BIGINT | 订单 ID，索引 |
+| sku_id | BIGINT | SKU ID |
+| product_name | VARCHAR(256) | 商品名称快照 |
+| sku_name | VARCHAR(128) | SKU 名称快照 |
+| sku_attrs | JSON | SKU 属性快照 |
+| main_image_url | VARCHAR(512) | 商品图片快照 |
+| unit_price | DECIMAL(18,2) | 单价快照 |
+| quantity | INT | 数量 |
+| subtotal_amount | DECIMAL(18,2) | 小计金额 |
+| refunded_amount | DECIMAL(18,2) | 已退款金额 |
+| refundable_amount | DECIMAL(18,2) | 可退金额 |
+
+**`order_status_logs` — 订单状态日志表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| order_id | BIGINT | 订单 ID，索引 |
+| from_status | VARCHAR(32) | 前状态 |
+| to_status | VARCHAR(32) | 后状态 |
+| operator_type | VARCHAR(32) | USER / MERCHANT / SYSTEM |
+| operator_id | BIGINT | 操作人 ID |
+| remark | VARCHAR(256) | 操作备注 |
+
+### 11.4 支付与售后表
+
+**`payments` — 支付单表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| payment_no | VARCHAR(64) | 支付单号，唯一索引 |
+| order_no | VARCHAR(64) | 订单号，索引 |
+| user_id | BIGINT | 用户 ID |
+| channel | VARCHAR(32) | WECHAT / ALIPAY |
+| pay_amount | DECIMAL(18,2) | 支付金额 |
+| pay_status | VARCHAR(32) | INIT / PAYING / SUCCESS / FAILED / CLOSED |
+| third_trade_no | VARCHAR(128) | 渠道交易号 |
+| paid_at | DATETIME | 支付成功时间 |
+| deleted_at | DATETIME | 软删除时间 |
+
+**`after_sales` — 售后表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| after_sale_no | VARCHAR(64) | 售后单号，唯一索引 |
+| order_id | BIGINT | 订单 ID，索引 |
+| order_item_id | BIGINT | 订单项 ID |
+| user_id | BIGINT | 用户 ID |
+| merchant_id | BIGINT | 商家 ID |
+| type | VARCHAR(32) | REFUND_ONLY / RETURN_REFUND |
+| status | VARCHAR(32) | APPLYING / MERCHANT_APPROVED / MERCHANT_REJECTED / USER_RETURNED / PLATFORM_INTERVENING / COMPLETED / CLOSED |
+| apply_amount | DECIMAL(18,2) | 申请退款金额 |
+| approved_amount | DECIMAL(18,2) | 同意退款金额 |
+| reason | VARCHAR(512) | 退款原因 |
+| evidence_urls | JSON | 凭证图片 URL 数组 |
+| logistics_company | VARCHAR(64) | 退货物流公司 |
+| tracking_no | VARCHAR(128) | 退货物流单号 |
+| shipped_at | DATETIME | 退货发货时间 |
+
+### 11.5 商家与结算表
+
+**`merchants` — 商家表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| merchant_no | VARCHAR(64) | 商家编号，唯一索引 |
+| company_name | VARCHAR(256) | 公司名称 |
+| license_no | VARCHAR(64) | 统一社会信用代码 |
+| contact_name | VARCHAR(64) | 联系人 |
+| contact_mobile | VARCHAR(20) | 联系人手机号 |
+| audit_status | VARCHAR(32) | PENDING / APPROVED / REJECTED |
+| status | VARCHAR(32) | ENABLED / FROZEN / DISABLED |
+| deleted_at | DATETIME | 软删除时间 |
+
+**`stores` — 店铺表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| merchant_id | BIGINT | 商家 ID，索引 |
+| store_name | VARCHAR(128) | 店铺名称 |
+| logo_url | VARCHAR(512) | 店铺 Logo |
+| status | VARCHAR(32) | ENABLED / DISABLED |
+
+**`settlements` — 结算单表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| settlement_no | VARCHAR(64) | 结算单号，唯一索引 |
+| merchant_id | BIGINT | 商家 ID，索引 |
+| start_date | DATE | 结算开始日期 |
+| end_date | DATE | 结算结束日期 |
+| total_amount | DECIMAL(18,2) | 总金额 |
+| commission_amount | DECIMAL(18,2) | 平台佣金 |
+| refund_amount | DECIMAL(18,2) | 退款扣减 |
+| settlement_amount | DECIMAL(18,2) | 结算金额 |
+| status | VARCHAR(32) | PENDING_AUDIT / APPROVED / REJECTED / PAID |
+
+### 11.6 审计与异常表
+
+**`operation_logs` — 操作日志表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| request_id | VARCHAR(64) | 请求 ID，索引 |
+| operator_type | VARCHAR(32) | 操作人类型 |
+| operator_id | BIGINT | 操作人 ID |
+| merchant_id | BIGINT | 商家 ID（可为空）|
+| module | VARCHAR(64) | 功能模块 |
+| action | VARCHAR(64) | 操作动作 |
+| biz_type | VARCHAR(64) | 业务类型 |
+| biz_no | VARCHAR(128) | 业务单号 |
+| before_data | JSON | 操作前数据快照 |
+| after_data | JSON | 操作后数据快照 |
+| remark | VARCHAR(512) | 备注 |
+
+**`exception_pool` — 异常池表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| exception_no | VARCHAR(64) | 异常单号，唯一索引 |
+| biz_type | VARCHAR(32) | PAYMENT / ORDER / REFUND / SETTLEMENT |
+| biz_no | VARCHAR(128) | 关联业务单号 |
+| exception_desc | TEXT | 异常描述 |
+| status | VARCHAR(32) | PENDING / PROCESSING / RESOLVED / CLOSED |
+| handler_id | BIGINT | 处理人 ID |
+| handle_result | TEXT | 处理结果 |
+| handled_at | DATETIME | 处理时间 |
+
+### 11.7 幂等与账户流水表
+
+**`idempotent_records` — 幂等记录表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| idempotent_key | VARCHAR(128) | 幂等 Key，唯一索引 |
+| request_digest | VARCHAR(128) | 请求摘要（用于校验参数一致性）|
+| response_data | JSON | 首次处理结果 |
+| status | VARCHAR(32) | PROCESSING / SUCCESS / FAILED |
+| expired_at | DATETIME | 过期时间 |
+
+**`account_flow_records` — 账务流水表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| flow_no | VARCHAR(64) | 流水号，唯一索引 |
+| merchant_id | BIGINT | 商家 ID，索引 |
+| biz_type | VARCHAR(32) | PAYMENT / REFUND / SETTLEMENT / WITHDRAW / FREEZE / UNFREEZE |
+| biz_no | VARCHAR(128) | 关联业务单号 |
+| amount | DECIMAL(18,2) | 发生金额 |
+| direction | VARCHAR(8) | IN / OUT |
+| balance_before | DECIMAL(18,2) | 操作前余额 |
+| balance_after | DECIMAL(18,2) | 操作后余额 |
+| status | VARCHAR(32) | SUCCESS / FAILED |
+
+## 12. RabbitMQ 事件定义
+
+### 12.1 事件路由规范
+
+| 交换机 | 类型 | 说明 |
+|---|---|---|
+| youxuan.order.exchange | TOPIC | 订单领域事件 |
+| youxuan.payment.exchange | TOPIC | 支付领域事件 |
+| youxuan.after-sale.exchange | TOPIC | 售后领域事件 |
+| youxuan.merchant.exchange | TOPIC | 商家领域事件 |
+| youxuan.finance.exchange | TOPIC | 财务领域事件 |
+| youxuan.dlx.exchange | DIRECT | 死信交换机（延迟队列）|
+
+### 12.2 订单事件
+
+| 事件 | Routing Key | 说明 | 消费者 |
+|---|---|---|---|
+| OrderCreatedEvent | order.created | 订单创建 | 库存锁定、日志记录 |
+| OrderPaidEvent | order.paid | 订单支付成功 | 通知商家、写入账务流水 |
+| OrderShippedEvent | order.shipped | 商家已发货 | 通知用户、超时自动确认收货计时器 |
+| OrderCompletedEvent | order.completed | 订单完成 | 更新店铺评分数据 |
+| OrderCanceledEvent | order.canceled | 订单取消 | 释放库存、退款处理 |
+| OrderRefundingEvent | order.refunding | 退款中 | 状态流转 |
+| OrderClosedEvent | order.closed | 订单关闭 | 最终状态清理 |
+
+**OrderCreatedEvent 消息体：**
+```json
+{
+  "eventId": "evt-uuid",
+  "eventType": "OrderCreatedEvent",
+  "timestamp": "2026-05-11T10:00:00.000Z",
+  "data": {
+    "orderId": "50001",
+    "orderNo": "O202605110001",
+    "userId": "10001",
+    "merchantId": "80001",
+    "storeId": "90001",
+    "payableAmount": "199.00",
+    "orderItems": [
+      { "skuId": "30001", "quantity": 2 }
+    ]
+  }
+}
+```
+
+### 12.3 支付事件
+
+| 事件 | Routing Key | 说明 | 消费者 |
+|---|---|---|---|
+| PaymentSuccessEvent | payment.success | 支付成功 | 更新订单支付状态、账务流水 |
+| PaymentFailedEvent | payment.failed | 支付失败 | 订单转回待支付 |
+| PaymentRefundEvent | payment.refund | 退款完成 | 更新退款状态 |
+| PaymentAbnormalEvent | payment.abnormal | 支付异常 | 写入异常池 |
+
+### 12.4 延时队列（死信队列实现）
+
+| 队列 | 延迟时间 | 用途 |
+|---|---|---|
+| order.cancel.delay.queue | 30 分钟 | 超时未支付自动取消 |
+| order.confirm.delay.queue | 7 天 | 发货后自动确认收货 |
+| after-sale.timeout.delay.queue | 3 天 | 商家售后超时自动通过 |
+| after-sale.return.timeout | 10 天 | 用户退货超时自动关闭 |
+
+注：延时队列通过 RabbitMQ 死信交换机（DLX）实现。消息先发送到带有 `x-message-ttl` 的延迟队列，TTL 到期后自动路由到实际处理队列。
+
+### 12.5 事件可靠性保证
+
+- 事件通过 `spring-cloud-stream` 或 `RabbitTemplate` 发送，确认模式为 `PUBLISH_CONFIRM`
+- 每个事件消息设置 `deliveryMode=PERSISTENT`
+- 消费端采用手动 ACK 模式
+- 失败重试：最多 3 次，超过则进入死信队列，由异常池兜底
+
+## 13. Redis 缓存策略
+
+### 13.1 缓存维度与失效时间
+
+| 缓存 Key 前缀 | 存储内容 | TTL | 更新时机 |
+|---|---|---|---|
+| `category:tree` | 类目树（JSON） | 600s | 后台类目变更后手动刷新 |
+| `product:detail:{id}` | 商品详情含 SKU | 300s | 商品审核通过、SKU 变更 |
+| `product:saleable:{id}` | 商品可售性状态 | 60s | 上下架、库存变化 |
+| `user:info:{id}` | 用户基本信息 | 1800s | 用户资料修改 |
+| `sku:stock:{id}` | SKU 可用库存 | 30s | 下单、取消订单释放 |
+| `token:access:{token}` | 用户登录会话 | 等于 Token TTL | 登录写入，退出/过期删除 |
+| `idempotent:lock:{key}` | 幂等 Key 处理锁 | 120s | 写入时设置，处理完成后延长 |
+| `rate:limit:{key}` | 接口限流计数器 | 滑动窗口 | 每次请求更新 |
+
+### 13.2 缓存模式
+
+- **读模式**：Cache-Aside，先查缓存，未命中再查 DB，回写缓存
+- **写模式**：更新 DB 后删除缓存（del），而非直接更新缓存，避免并发写导致数据不一致
+- **库存缓存**：下单时先校验 Redis 库存，再扣减 DB 库存，最终以 DB 为准。Redis 库存用于快速拦截超卖
+
+### 13.3 缓存穿透防护
+
+- 查询空值也缓存（TTL 较短，30s），防止频繁穿透
+- 商品详情等热点 Key 使用布隆过滤器（Bloom Filter）前置校验
+
+### 13.4 分布式锁
+
+- 下单锁定库存、幂等处理等场景使用 Redis 分布式锁
+- 锁 Key 规范：`lock:{bizType}:{bizId}`
+- 锁自动过期时间：10s，支持看门狗（Watch Dog）续期
+
+## 14. 文件上传 API
+
+### 14.1 获取上传凭证
+
+`GET /api/v1/upload/token`
+
+权限：USER / MERCHANT / PLATFORM_ADMIN。
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| bizType | string | 是 | PRODUCT_IMAGE / QUALIFICATION / EVIDENCE / AVATAR |
+| fileCount | integer | 否 | 预计上传文件数，默认 1，最大 10 |
+
+响应：
+```json
+{
+  "uploadToken": "upt-xxx",
+  "uploadUrl": "https://cdn.youxuan.com/upload",
+  "expiresIn": 3600,
+  "allowedExtensions": ["jpg","jpeg","png","pdf"],
+  "maxFileSize": 5242880
+}
+```
+
+### 14.2 文件上传
+
+`POST /api/v1/upload`
+
+权限：根据关联业务校验。
+
+请求：`multipart/form-data`
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| file | File | 是 | 上传文件 |
+| bizType | string | 是 | 业务类型 |
+| uploadToken | string | 是 | 上传凭证 |
+
+响应：
+```json
+{
+  "fileId": "file-xxx",
+  "fileUrl": "https://cdn.youxuan.com/images/2026/05/abc.jpg",
+  "fileSize": 102400,
+  "fileType": "image/jpeg"
+}
+```
+
+### 14.3 文件上传规范
+
+| 业务类型 | 格式限制 | 大小限制 | 说明 |
+|---|---|---|---|
+| PRODUCT_IMAGE | jpg, jpeg, png | 5MB | 商品主图/详情图 |
+| QUALIFICATION | jpg, jpeg, png, pdf | 10MB | 商家资质文件 |
+| EVIDENCE | jpg, jpeg, png | 5MB | 售后凭证 |
+| AVATAR | jpg, jpeg, png | 2MB | 用户/商家头像 |
+
+注意：所有上传文件必须经过内容安全校验（图片鉴黄/鉴政），不合规文件直接拒绝并记录风控日志。
+
+## 15. 定时任务
+
+### 15.1 定时任务列表
+
+| 任务名称 | 调度方式 | 执行频率 | 说明 |
+|---|---|---|---|
+| OrderAutoCancelTask | XXL-Job / @Scheduled | 每 5 分钟 | 查询超时 30 分钟未支付订单，自动取消并释放库存 |
+| OrderAutoConfirmTask | XXL-Job / @Scheduled | 每天凌晨 2:00 | 查询发货超 7 天未确认收货订单，自动确认完成 |
+| SettlementGenerateTask | XXL-Job / @Scheduled | 每天凌晨 3:00 | 按账期配置生成商家结算单 |
+| BillGenerateTask | XXL-Job / @Scheduled | 每天凌晨 1:00 | 生成前一日商家日账单 |
+| ReconciliationTask | XXL-Job / @Scheduled | 每天凌晨 4:00 | 自动发起前一日渠道对账 |
+| AfterSaleTimeoutTask | XXL-Job / @Scheduled | 每 10 分钟 | 商家售后处理超时 3 天自动通过；用户退货超时 10 天自动关闭 |
+| IdempotentCleanupTask | XXL-Job / @Scheduled | 每天凌晨 5:00 | 清理已过期的幂等记录 |
+
+### 15.2 关键任务执行逻辑
+
+**OrderAutoCancelTask：**
+```sql
+UPDATE orders SET order_status = 'CANCELED', updated_at = NOW()
+WHERE order_status = 'CREATED' AND pay_status = 'UNPAID'
+  AND created_at < DATE_SUB(NOW(), INTERVAL 30 MINUTE)
+  AND deleted_at IS NULL;
+```
+- 同时恢复 SKU 库存（locked_stock 扣减，available_stock 增加）
+- 写入 order_status_logs
+
+**SettlementGenerateTask：**
+- 按 merchant_id 分组，对已完成的日账单生成结算单
+- 结算周期：T+7（按平台配置）
+- 自动跳过已有结算单的日期范围
+- 生成成功后发送通知事件
+
+## 16. 依赖服务配置
+
+### 16.1 Nacos 配置中心
+
+| 配置项 | 默认值 | 说明 |
+|---|---|---|
+| spring.cloud.nacos.discovery.server-addr | 127.0.0.1:8848 | 注册中心地址 |
+| spring.cloud.nacos.discovery.namespace | public | 命名空间 |
+| spring.cloud.nacos.discovery.group | DEFAULT_GROUP | 分组 |
+| spring.cloud.nacos.config.server-addr | 127.0.0.1:8848 | 配置中心地址 |
+| spring.cloud.nacos.config.file-extension | yml | 配置文件格式 |
+
+### 16.2 Sentinel 限流配置
+
+| 接口 | QPS 阈值 | 隔离策略 | 降级处理 |
+|---|---|---|---|
+| `POST /api/v1/auth/mobile-login` | 10 | 线程池隔离 | 返回 RATE_LIMITED |
+| `POST /api/v1/payment-callbacks/**` | 50 | 信号量隔离 | 返回 429 |
+| `POST /api/v1/orders` | 100 | 信号量隔离 | 返回 RATE_LIMITED |
+| `POST /api/v1/after-sales` | 50 | 信号量隔离 | 返回 RATE_LIMITED |
+| `POST /api/v1/merchant/withdraw-orders` | 20 | 线程池隔离 | 返回 RATE_LIMITED |
+| `GET /api/v1/products/**` | 500 | 信号量隔离 | 返回兜底缓存数据 |
+| `GET /api/v1/categories/tree` | 1000 | 信号量隔离 | 返回兜底缓存数据 |
+
+### 16.3 分布式事务说明
+
+P0 采用最终一致性方案，不引入 Seata：
+
+| 场景 | 方案 | 说明 |
+|---|---|---|
+| 下单 + 锁定库存 | 本地事务 + Redis 库存预扣 + 消息补偿 | DB 扣库存失败时通过异常池补偿 |
+| 支付回调 + 更新订单 | 本地事务 + 幂等表 | 幂等防重放 + 异常池兜底 |
+| 退款 + 更新状态 | 本地事务 + 消息驱动 + 异常池 | 退款失败自动进入异常池 |
+| 结算单生成 | 定时任务 + 幂等 | 每天执行，支持失败重跑 |

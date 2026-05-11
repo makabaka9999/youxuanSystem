@@ -1,9 +1,20 @@
+/**
+ * 用户端门户页面（User Portal / H5 风格）
+ *
+ * 模拟用户端 H5 交易闭环的核心交互：
+ * - 商品发现（商品卡片展示）
+ * - 购物车管理（选择、数量调整、删除）
+ * - 订单列表管理
+ * - 售后进度跟进
+ * - 用户端交易链路概览
+ */
 import { useEffect, useMemo, useState } from "react";
 import { CreditCard, Minus, PackageCheck, Plus, RotateCcw, ShoppingBag, ShoppingCart, Trash2, UserRound } from "lucide-react";
 import { afterSaleStatusMap, orderStatusMap, productStatusMap } from "../domain";
 import { AmountText, Card, DataTable, MetricGrid, PrimaryButton, SectionHeader, StatusTag } from "../components";
 import type { AfterSale, CartItem, Metric, Order, Product } from "../types";
 
+/** 用户端门户页面组件属性 */
 type UserPortalProps = {
   metrics: Metric[];
   products: Product[];
@@ -12,13 +23,17 @@ type UserPortalProps = {
   afterSales: AfterSale[];
 };
 
+/** 用户端门户页面组件 */
 export function UserPortal({ metrics, products, cartItems, orders, afterSales }: UserPortalProps) {
+  // 购物车数据（本地可编辑状态）
   const [editableCartItems, setEditableCartItems] = useState<CartItem[]>(cartItems);
 
+  // 外部数据变化时同步到本地状态
   useEffect(() => {
     setEditableCartItems(cartItems);
   }, [cartItems]);
 
+  // 计算已选商品的总金额
   const selectedTotal = useMemo(
     () =>
       editableCartItems
@@ -28,11 +43,13 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
     [editableCartItems]
   );
 
+  // 计算已选商品的总件数
   const selectedCount = useMemo(
     () => editableCartItems.filter((item) => item.selected).reduce((sum, item) => sum + item.quantity, 0),
     [editableCartItems]
   );
 
+  /** 购物车商品数量增减：数量归零则移除该商品 */
   const changeQuantity = (id: string, nextQuantity: number) => {
     setEditableCartItems((items) => {
       if (nextQuantity <= 0) {
@@ -42,16 +59,19 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
     });
   };
 
+  /** 切换商品的选中/取消状态 */
   const toggleSelected = (id: string) => {
     setEditableCartItems((items) => items.map((item) => (item.id === id ? { ...item, selected: !item.selected } : item)));
   };
 
+  /** 从购物车中删除指定商品 */
   const removeCartItem = (id: string) => {
     setEditableCartItems((items) => items.filter((item) => item.id !== id));
   };
 
   return (
     <div className="portal-page user-page">
+      {/* Hero 区域：用户端简介与待处理概要 */}
       <section className="hero user-hero">
         <div className="hero-copy">
           <span className="eyebrow">用户端 H5</span>
@@ -68,6 +88,7 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
             </button>
           </div>
         </div>
+        {/* 手机壳模拟 UI */}
         <div className="phone-shell">
           <div className="phone-top" />
           <div className="phone-card">
@@ -88,9 +109,11 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
         </div>
       </section>
 
+      {/* 关键指标卡片 */}
       <MetricGrid metrics={metrics} />
 
       <section className="content-grid two-col">
+        {/* 商品发现区域 */}
         <Card>
           <SectionHeader title="商品发现" description="来源：GET /api/v1/products" action="全部商品" />
           <div className="product-grid">
@@ -110,11 +133,13 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
           </div>
         </Card>
 
+        {/* 购物车区域：支持选择、数量增减、删除和拆单结算 */}
         <Card>
           <SectionHeader title="购物车拆单" description="来源：GET /api/v1/cart-items" action="去结算" />
           <div className="cart-list">
             {editableCartItems.map((item) => (
               <div className="cart-row" key={item.id}>
+                {/* 选择按钮 */}
                 <button
                   className={`check-dot ${item.selected ? "checked" : ""}`}
                   type="button"
@@ -144,6 +169,7 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
             ))}
             {editableCartItems.length === 0 ? <div className="empty-cart">购物车暂无商品</div> : null}
           </div>
+          {/* 结算栏：显示已选数量和总金额 */}
           <div className="settle-bar">
             <span>已选 <strong>{selectedCount}</strong> 件，按店铺拆分订单</span>
             <AmountText value={selectedTotal} />
@@ -152,6 +178,7 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
       </section>
 
       <section className="content-grid two-col">
+        {/* 订单列表 */}
         <Card>
           <SectionHeader title="我的订单" description="来源：GET /api/v1/orders" action="订单列表" />
           <DataTable
@@ -166,6 +193,7 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
           />
         </Card>
 
+        {/* 售后进度时间线 */}
         <Card>
           <SectionHeader title="售后进度" description="来源：GET /api/v1/after-sales/{id}" action="售后中心" />
           <div className="timeline-list">
@@ -186,6 +214,7 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
         </Card>
       </section>
 
+      {/* 用户端交易链路概览 */}
       <Card className="flow-panel">
         <SectionHeader title="用户端交互链路" description="页面按钮只控制体验，最终状态以服务端响应为准" />
         <div className="flow-steps">
@@ -211,6 +240,7 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
   );
 }
 
+/** 根据订单状态显示对应的操作按钮 */
 function ActionByOrder({ status }: { status: Order["status"] }) {
   if (status === "PENDING_PAYMENT") return <button className="link-button" type="button">去支付</button>;
   if (status === "PAID") return <button className="link-button" type="button">申请退款</button>;

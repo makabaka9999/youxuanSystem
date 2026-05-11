@@ -1,3 +1,10 @@
+/**
+ * 登录页面
+ *
+ * 支持三端登录（用户端 / 商家端 / 平台后台），
+ * 采用 RSA-OAEP 加密传输密码至后端，
+ * 登录成功后保存认证信息到 localStorage 并跳转至对应门户。
+ */
 import { useCallback, useState } from "react";
 import {
   Eye,
@@ -12,31 +19,45 @@ import { login as loginApi } from "../api/authApi";
 import type { AuthState, LoginResponse } from "../types";
 import { fetchPublicKey, rsaEncrypt } from "../utils/crypto";
 
+/** 登录页面组件属性 */
 type LoginPageProps = {
+  /** 登录成功回调：传递认证状态给父组件 */
   onLoginSuccess: (authState: AuthState) => void;
 };
 
+/** 可选登录门户类型 */
 type PortalType = "USER" | "MERCHANT_OWNER" | "PLATFORM_ADMIN";
 
+/** 门户选择器配置：类型、显示文字、对应图标 */
 const portalOptions: { type: PortalType; label: string; Icon: typeof UserRound }[] = [
   { type: "USER", label: "用户端", Icon: UserRound },
   { type: "MERCHANT_OWNER", label: "商家端", Icon: Store },
   { type: "PLATFORM_ADMIN", label: "平台后台", Icon: ShieldCheck },
 ];
 
+/** 登录流程状态：空闲 / 加载中 / 出错 / 成功 */
 type LoginStatus = "idle" | "loading" | "error" | "success";
 
+/** 登录页面组件 */
 export function LoginPage({ onLoginSuccess }: LoginPageProps) {
+  // 选中的登录门户类型
   const [portalType, setPortalType] = useState<PortalType>("USER");
+  // 账号输入
   const [account, setAccount] = useState("");
+  // 密码输入
   const [password, setPassword] = useState("");
+  // 是否显示密码明文
   const [showPassword, setShowPassword] = useState(false);
+  // 登录流程状态
   const [status, setStatus] = useState<LoginStatus>("idle");
+  // 错误提示信息
   const [errorMsg, setErrorMsg] = useState("");
 
+  /** 登录表单提交处理：RSA 加密密码后调用登录 API */
   const handleLogin = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
+      // 表单校验：账号和密码不能为空
       if (!account.trim() || !password.trim()) {
         setStatus("error");
         setErrorMsg("请输入账号和密码");
@@ -47,13 +68,13 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       setErrorMsg("");
 
       try {
-        // Step 1: fetch RSA public key
+        // 第 1 步：从后端获取 RSA 公钥
         const publicKey = await fetchPublicKey();
 
-        // Step 2: encrypt the password
+        // 第 2 步：使用 RSA-OAEP 对明文密码加密
         const encryptedPassword = await rsaEncrypt(password, publicKey.key);
 
-        // Step 3: send login request with encrypted password
+        // 第 3 步：发送加密后的密码到登录接口
         const result: LoginResponse = await loginApi({
           account: account.trim(),
           password: encryptedPassword,
@@ -62,6 +83,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
         setStatus("success");
 
+        // 构建认证状态对象
         const authState: AuthState = {
           authenticated: true,
           accessToken: result.accessToken,
@@ -69,9 +91,10 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           currentPrincipal: result.currentPrincipal,
         };
 
-        // Store auth in localStorage (token persists across refreshes)
+        // 将认证信息持久化到 localStorage（刷新页面后保持登录态）
         localStorage.setItem("youxuan_auth", JSON.stringify(authState));
 
+        // 延迟 300ms 跳转，让用户看到"登录成功"的反馈
         setTimeout(() => onLoginSuccess(authState), 300);
       } catch (err) {
         setStatus("error");
@@ -81,11 +104,12 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     [account, password, portalType, onLoginSuccess]
   );
 
+  // 是否正在提交中
   const isSubmitting = status === "loading";
 
   return (
     <div className="login-page">
-      {/* Background decoration */}
+      {/* 背景装饰圆 */}
       <div className="login-bg" aria-hidden="true">
         <div className="login-bg-circle login-bg-circle-1" />
         <div className="login-bg-circle login-bg-circle-2" />
@@ -93,7 +117,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       </div>
 
       <div className="login-container">
-        {/* Brand */}
+        {/* 品牌标识 */}
         <div className="login-brand">
           <div className="login-brand-mark">优</div>
           <div className="login-brand-text">
@@ -102,14 +126,14 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           </div>
         </div>
 
-        {/* Login Card */}
+        {/* 登录卡片 */}
         <div className="login-card">
           <div className="login-card-header">
             <h1>登录</h1>
             <p>选择登录端并使用账号密码登录</p>
           </div>
 
-          {/* Portal Type Selector */}
+          {/* 门户类型选择器（用户端 / 商家端 / 平台后台） */}
           <div className="login-portal-selector" role="radiogroup" aria-label="选择登录端">
             {portalOptions.map(({ type, label, Icon }) => (
               <button
@@ -126,7 +150,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             ))}
           </div>
 
-          {/* Login Form */}
+          {/* 登录表单 */}
           <form className="login-form" onSubmit={handleLogin} noValidate>
             <div className="login-field">
               <label htmlFor="account">账号</label>
@@ -137,6 +161,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 value={account}
                 onChange={(e) => {
                   setAccount(e.target.value);
+                  // 输错后重新输入时清除错误状态
                   if (status === "error") setStatus("idle");
                 }}
                 disabled={isSubmitting}
@@ -160,6 +185,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   disabled={isSubmitting}
                   autoComplete="current-password"
                 />
+                {/* 密码显示/隐藏切换按钮 */}
                 <button
                   type="button"
                   className="password-toggle"
@@ -172,12 +198,14 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               </div>
             </div>
 
+            {/* 错误提示信息 */}
             {status === "error" && (
               <div className="login-error" role="alert">
                 {errorMsg}
               </div>
             )}
 
+            {/* 登录提交按钮 */}
             <button
               type="submit"
               className="login-submit"
@@ -197,7 +225,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             </button>
           </form>
 
-          {/* Footer */}
+          {/* 底部：加密传输标识 */}
           <div className="login-footer">
             <span className="login-footer-encryption">
               <ShieldCheck size={14} />

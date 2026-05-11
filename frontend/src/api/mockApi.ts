@@ -1,3 +1,9 @@
+/**
+ * Mock API 模拟数据
+ *
+ * 在后端未就绪时，提供三套门户的模拟首页数据。
+ * 模拟 160ms 网络延迟，数据覆盖商品、购物车、订单、售后、商家、结算、异常和操作日志。
+ */
 import type {
   AfterSale,
   CartItem,
@@ -10,8 +16,10 @@ import type {
   Settlement
 } from "../types";
 
+/** 模拟网络延迟：160ms 后返回数据 */
 const delay = <T,>(data: T) => new Promise<T>((resolve) => window.setTimeout(() => resolve(data), 160));
 
+/** 商品模拟数据（4 条，覆盖在售 / 审核中 / 下架等状态） */
 export const products: Product[] = [
   {
     id: "10001",
@@ -59,12 +67,14 @@ export const products: Product[] = [
   }
 ];
 
+/** 购物车模拟数据（3 条，不同店铺，部分选中） */
 export const cartItems: CartItem[] = [
   { id: "c1", productName: "有机高山蓝莓礼盒", skuName: "500g 双盒装", storeName: "青岚果园旗舰店", price: "89.00", quantity: 2, selected: true },
   { id: "c2", productName: "低温烘焙坚果组合", skuName: "每日坚果 30 包", storeName: "禾谷食研社", price: "59.90", quantity: 1, selected: true },
   { id: "c3", productName: "手工陶瓷马克杯", skuName: "雾白 350ml", storeName: "陶里日用", price: "42.00", quantity: 1, selected: false }
 ];
 
+/** 订单模拟数据（4 条，覆盖待支付/待发货/待收货/异常状态） */
 export const orders: Order[] = [
   { id: "o1", orderNo: "SO202605080001", storeName: "青岚果园旗舰店", userName: "赵女士", amount: "178.00", itemCount: 2, status: "PAID", paidAt: "2026-05-08 10:22:18", createdAt: "2026-05-08 10:20:03" },
   { id: "o2", orderNo: "SO202605070086", storeName: "禾谷食研社", userName: "林先生", amount: "59.90", itemCount: 1, status: "SHIPPED", paidAt: "2026-05-07 16:14:09", createdAt: "2026-05-07 16:10:44", shipment: "顺丰速运 SF1234567890" },
@@ -72,35 +82,42 @@ export const orders: Order[] = [
   { id: "o4", orderNo: "SO202605050099", storeName: "棠研个护", userName: "周女士", amount: "129.00", itemCount: 1, status: "EXCEPTION", paidAt: "2026-05-05 09:07:11", createdAt: "2026-05-05 09:05:48" }
 ];
 
+/** 售后模拟数据（2 条，覆盖待商家处理和平台介入状态） */
 export const afterSales: AfterSale[] = [
   { id: "as1", afterSaleNo: "AS202605080003", orderNo: "SO202605070086", storeName: "禾谷食研社", reason: "包装破损，申请退货退款", amount: "59.90", status: "PENDING_MERCHANT", deadline: "2026-05-09 18:00:00" },
   { id: "as2", afterSaleNo: "AS202605070011", orderNo: "SO202605050099", storeName: "棠研个护", reason: "支付异常后退款失败", amount: "129.00", status: "PLATFORM_INTERVENING", deadline: "2026-05-08 20:00:00" }
 ];
 
+/** 商家模拟数据（3 条，覆盖待审核/已通过/已冻结状态） */
 export const merchants: Merchant[] = [
   { id: "m1", name: "青岚果园旗舰店", companyName: "杭州青岚农业有限公司", contact: "李青 138****2301", category: "生鲜水果", auditStatus: "PENDING", status: "DISABLED", submittedAt: "2026-05-08 09:48:12" },
   { id: "m2", name: "禾谷食研社", companyName: "上海禾谷食品有限公司", contact: "王禾 139****8172", category: "休闲食品", auditStatus: "APPROVED", status: "ENABLED", submittedAt: "2026-05-04 14:21:59" },
   { id: "m3", name: "棠研个护", companyName: "广州棠研生物科技有限公司", contact: "郑棠 137****3308", category: "美妆个护", auditStatus: "APPROVED", status: "FROZEN", submittedAt: "2026-04-28 11:11:33" }
 ];
 
+/** 结算单模拟数据（2 条，覆盖待审核/已通过状态） */
 export const settlements: Settlement[] = [
   { id: "s1", settlementNo: "ST202605080001", merchantName: "禾谷食研社", period: "2026-04-30 至 2026-05-06", grossAmount: "48230.90", commission: "2411.55", refundDeduction: "630.00", payableAmount: "45189.35", status: "PENDING_AUDIT" },
   { id: "s2", settlementNo: "ST202605070002", merchantName: "青岚果园旗舰店", period: "2026-04-29 至 2026-05-05", grossAmount: "65812.00", commission: "3290.60", refundDeduction: "1298.00", payableAmount: "61223.40", status: "APPROVED" }
 ];
 
+/** 异常记录模拟数据（3 条，覆盖订单/支付/对账异常类型） */
 export const exceptions: ExceptionRecord[] = [
   { id: "e1", type: "ORDER", title: "支付成功但订单已取消", relatedNo: "SO202605050099", amount: "129.00", status: "PENDING", createdAt: "2026-05-08 08:31:21" },
   { id: "e2", type: "PAYMENT", title: "渠道回调重复且金额不一致", relatedNo: "PO202605080017", amount: "178.00", status: "PROCESSING", createdAt: "2026-05-08 10:34:52" },
   { id: "e3", type: "RECONCILIATION", title: "渠道退款金额与平台退款单差异", relatedNo: "RC202605070004", amount: "20.00", status: "PENDING", createdAt: "2026-05-07 23:12:45" }
 ];
 
+/** 操作日志模拟数据（3 条，覆盖审核/提现/对账操作） */
 export const operationLogs: OperationLog[] = [
   { id: "log1", operator: "平台审核员-韩", module: "商家审核", action: "审核通过", target: "禾谷食研社", result: "SUCCESS", createdAt: "2026-05-08 09:40:19" },
   { id: "log2", operator: "平台财务-杜", module: "提现审核", action: "审核驳回", target: "WD202605080003", result: "SUCCESS", createdAt: "2026-05-08 11:03:28" },
   { id: "log3", operator: "系统任务", module: "对账", action: "生成差异", target: "RC202605070004", result: "SUCCESS", createdAt: "2026-05-07 23:12:45" }
 ];
 
+/** 模拟 API 对象：返回三个门户的首页数据 */
 export const api = {
+  /** 获取用户端首页数据 */
   getUserHome: () =>
     delay({
       metrics: [
@@ -113,6 +130,7 @@ export const api = {
       orders,
       afterSales
     }),
+  /** 获取商家端首页数据 */
   getMerchantHome: () =>
     delay({
       metrics: [
@@ -126,6 +144,7 @@ export const api = {
       afterSales,
       settlements
     }),
+  /** 获取平台后台首页数据 */
   getAdminHome: () =>
     delay({
       metrics: [

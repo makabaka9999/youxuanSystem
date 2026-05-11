@@ -17,7 +17,11 @@
       "Bash(taskkill /f /im soffice.bin)",
       "Bash(cmd //c 'rmdir /s /q \"D:\\\\java\\\\ai\\\\youxuanSystem\\\\.docx_tmp\"')",
       "Bash(taskkill //f //im soffice.exe)",
-      "Bash(taskkill //f //im soffice.bin)"
+      "Bash(taskkill //f //im soffice.bin)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(docker exec *)",
+      "Bash(git push *)"
     ]
   }
 }

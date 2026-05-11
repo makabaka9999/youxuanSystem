@@ -15,17 +15,39 @@ import java.security.PublicKey;
 import java.security.spec.MGF1ParameterSpec;
 import java.util.Base64;
 
+/**
+ * RSA 密钥服务。
+ * <p>
+ * 在应用启动时生成 RSA-2048 密钥对，提供公钥获取和密码解密功能。
+ * 支持 OAEPWithSHA-256 填充方案，与前端的 Web Crypto API（RSA-OAEP/SHA-256）兼容。
+ * </p>
+ */
 @Service
 public class RsaKeyService {
 
     private static final Logger log = LoggerFactory.getLogger(RsaKeyService.class);
+
+    /** RSA 算法名称 */
     private static final String ALGORITHM = "RSA";
+
+    /** 加密算法/模式/填充（与前端 Web Crypto API 兼容） */
     private static final String CIPHER_ALGORITHM = "RSA/ECB/OAEPWithSHA-256AndMGF1Padding";
+
+    /** 密钥长度：2048 位 */
     private static final int KEY_SIZE = 2048;
 
+    /** RSA 公钥，用于前端加密密码 */
     private final PublicKey publicKey;
+
+    /** RSA 私钥，用于后端解密密码 */
     private final PrivateKey privateKey;
 
+    /**
+     * 构造 RSA 密钥服务。
+     * <p>
+     * 实例化时自动生成 RSA-2048 密钥对。
+     * </p>
+     */
     public RsaKeyService() {
         try {
             KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(ALGORITHM);
@@ -39,10 +61,26 @@ public class RsaKeyService {
         }
     }
 
+    /**
+     * 获取 Base64 编码的公钥字符串。
+     *
+     * @return Base64 编码的公钥
+     */
     public String getPublicKeyBase64() {
         return Base64.getEncoder().encodeToString(publicKey.getEncoded());
     }
 
+    /**
+     * 解密前端使用 RSA 公钥加密的密码。
+     * <p>
+     * 使用 OAEPPadding 和 SHA-256 作为 OAEP 摘要及 MGF1 摘要，
+     * 与前端的 Web Crypto API（RSA-OAEP/SHA-256）保持一致。
+     * </p>
+     *
+     * @param encryptedBase64 前端加密后的 Base64 字符串
+     * @return 解密后的明文字符串（UTF-8 编码）
+     * @throws RuntimeException 解密失败时抛出
+     */
     public String decrypt(String encryptedBase64) {
         try {
             byte[] encryptedBytes = Base64.getDecoder().decode(encryptedBase64);

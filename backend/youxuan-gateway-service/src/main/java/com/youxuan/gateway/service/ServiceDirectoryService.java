@@ -5,9 +5,24 @@ import java.util.Arrays;
 import java.util.List;
 import org.springframework.stereotype.Service;
 
+/**
+ * 服务目录服务
+ * <p>
+ * 提供平台各微服务的注册信息，当前为静态配置方式，
+ * 后续可扩展为从 Nacos 注册中心动态拉取服务列表。
+ * </p>
+ */
 @Service
 public class ServiceDirectoryService {
 
+    /**
+     * 获取所有服务的目录列表
+     * <p>
+     * 返回平台全部 6 个微服务的编码、中文名、基础路径和职责说明。
+     * </p>
+     *
+     * @return 服务目录列表
+     */
     public List<ServiceDirectoryDTO> listServices() {
         return Arrays.asList(
                 new ServiceDirectoryDTO("auth", "认证权限服务", "/api/v1/auth", "登录、JWT、RBAC、账号权限"),

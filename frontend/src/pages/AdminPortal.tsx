@@ -1,3 +1,14 @@
+/**
+ * 平台后台门户页面（Admin Portal / Web 风格）
+ *
+ * 提供平台运营的核心管理功能：
+ * - 商家入驻审核队列
+ * - 商品审核队列
+ * - 异常处理池（支付、退款、对账差异）
+ * - 结算与提现审核
+ * - 订单与售后监控
+ * - 操作审计日志
+ */
 import { AlertTriangle, BadgeCheck, FileClock, Landmark, ListChecks, ScrollText, ShieldAlert } from "lucide-react";
 import {
   afterSaleStatusMap,
@@ -10,6 +21,7 @@ import {
 import { AmountText, Card, DataTable, MetricGrid, SectionHeader, StatusTag, Toolbar, SearchInput } from "../components";
 import type { AfterSale, ExceptionRecord, Merchant, Metric, OperationLog, Order, Product, Settlement } from "../types";
 
+/** 平台后台门户页面组件属性 */
 type AdminPortalProps = {
   metrics: Metric[];
   merchants: Merchant[];
@@ -21,6 +33,7 @@ type AdminPortalProps = {
   operationLogs: OperationLog[];
 };
 
+/** 平台后台门户页面组件 */
 export function AdminPortal({
   metrics,
   merchants,
@@ -33,6 +46,7 @@ export function AdminPortal({
 }: AdminPortalProps) {
   return (
     <div className="portal-page admin-page">
+      {/* Hero 区域：平台后台简介与风险概览看板 */}
       <section className="hero admin-hero">
         <div className="hero-copy">
           <span className="eyebrow">平台管理后台</span>
@@ -49,6 +63,7 @@ export function AdminPortal({
             </button>
           </div>
         </div>
+        {/* 风险看板：关键异常指标速览 */}
         <div className="risk-board">
           <div className="risk-row">
             <AlertTriangle size={18} />
@@ -71,6 +86,7 @@ export function AdminPortal({
       <MetricGrid metrics={metrics} />
 
       <section className="content-grid two-col">
+        {/* 商家入驻审核队列 */}
         <Card>
           <SectionHeader title="商家审核队列" description="来源：GET /api/v1/admin/merchant-applications" action="审核列表" />
           <Toolbar>
@@ -90,6 +106,7 @@ export function AdminPortal({
           />
         </Card>
 
+        {/* 商品审核队列 */}
         <Card>
           <SectionHeader title="商品审核队列" description="来源：GET /api/v1/admin/product-audits" action="商品审核" />
           <DataTable
@@ -107,6 +124,7 @@ export function AdminPortal({
       </section>
 
       <section className="content-grid two-col">
+        {/* 异常处理池：展示各类待处理/处理中/已解决的异常记录 */}
         <Card>
           <SectionHeader title="异常处理池" description="来源：GET /api/v1/admin/exception-orders" action="全部异常" />
           <div className="exception-list">
@@ -118,12 +136,14 @@ export function AdminPortal({
                   <p>{item.type} · {item.relatedNo} · <AmountText value={item.amount} /></p>
                   <small>{item.createdAt}</small>
                 </div>
+                {/* 异常状态标签：待处理(红) / 处理中(黄) / 已解决(绿) */}
                 <StatusTag label={item.status === "RESOLVED" ? "已处理" : item.status === "PROCESSING" ? "处理中" : "待处理"} tone={item.status === "RESOLVED" ? "success" : item.status === "PROCESSING" ? "warning" : "danger"} />
               </article>
             ))}
           </div>
         </Card>
 
+        {/* 结算与提现审核 */}
         <Card>
           <SectionHeader title="结算与提现审核" description="来源：GET /api/v1/admin/settlement-orders" action="财务审核" />
           <DataTable
@@ -141,11 +161,13 @@ export function AdminPortal({
       </section>
 
       <section className="content-grid two-col">
+        {/* 订单与售后监控：平台视角的订单列表和售后介入入口 */}
         <Card>
           <SectionHeader title="订单与售后监控" description="来源：平台订单、售后介入接口" action="运营监控" />
           <DataTable
             columns={["业务单号", "对象", "金额", "状态", "入口"]}
             rows={[
+              // 前 3 条待处理的订单
               ...orders.slice(0, 3).map((order) => [
                 <span className="mono">{order.orderNo}</span>,
                 order.storeName,
@@ -153,6 +175,7 @@ export function AdminPortal({
                 <StatusTag {...orderStatusMap[order.status]} />,
                 <button className="link-button">订单详情</button>
               ]),
+              // 所有售后单（平台介入入口）
               ...afterSales.map((item) => [
                 <span className="mono">{item.afterSaleNo}</span>,
                 item.storeName,
@@ -164,6 +187,7 @@ export function AdminPortal({
           />
         </Card>
 
+        {/* 操作审计日志时间线 */}
         <Card>
           <SectionHeader title="操作审计" description="来源：GET /api/v1/admin/operation-logs" action="日志查询" />
           <div className="audit-list">
@@ -181,6 +205,7 @@ export function AdminPortal({
         </Card>
       </section>
 
+      {/* 后台核心队列能力概览 */}
       <Card className="flow-panel">
         <SectionHeader title="后台核心队列" description="所有高风险动作记录操作人、IP、前后状态和 requestId" />
         <div className="capability-grid admin-capability">

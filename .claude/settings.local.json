@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p \"D:\\\\java\\\\ai\\\\youxuanSystem\\\\.claude\")",
+      "Bash(npm --version)",
+      "Bash(npx --version)",
+      "Bash(npx --yes @modelcontextprotocol/server-git --help)",
+      "Bash(npx --yes @context7/context7-mcp --help)",
+      "Bash(npm config *)",
+      "Bash(npx --yes @cyanheads/git-mcp-server --help)",
+      "Bash(rm -rf \"D:\\\\java\\\\ai\\\\youxuanSystem\\\\.docx_tmp\" \"D:\\\\java\\\\ai\\\\youxuanSystem\\\\docx_render_check\" \"D:\\\\java\\\\ai\\\\youxuanSystem\\\\tools\" \"D:\\\\java\\\\ai\\\\youxuanSystem\\\\~\\\\$*.docx\")",
+      "Bash(chmod -R +w \"D:\\\\java\\\\ai\\\\youxuanSystem\\\\.docx_tmp\")",
+      "Bash(takeown /f \"D:\\\\java\\\\ai\\\\youxuanSystem\\\\.docx_tmp\" /r /d y)",
+      "Bash(icacls \"D:\\\\java\\\\ai\\\\youxuanSystem\\\\.docx_tmp\" /grant \"%USERNAME%:F\" /t /q)",
+      "Bash(cmd //c 'takeown /f \"D:\\\\java\\\\ai\\\\youxuanSystem\\\\.docx_tmp\" /r /d y 2>&1')",
+      "Bash(taskkill /f /im soffice.exe)",
+      "Bash(taskkill /f /im soffice.bin)",
+      "Bash(cmd //c 'rmdir /s /q \"D:\\\\java\\\\ai\\\\youxuanSystem\\\\.docx_tmp\"')",
+      "Bash(taskkill //f //im soffice.exe)",
+      "Bash(taskkill //f //im soffice.bin)"
+    ]
+  }
+}

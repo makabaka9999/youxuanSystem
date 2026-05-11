@@ -1,0 +1,62 @@
+version: "3.9"
+
+services:
+  redis:
+    image: redis:7
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+  nacos:
+    image: nacos/nacos-server:v2.3.2
+    container_name: nacos
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+    environment:
+      MODE: standalone
+      SPRING_DATASOURCE_PLATFORM: ""
+
+  sentinel:
+    image: bladex/sentinel-dashboard:1.8.8
+    container_name: sentinel
+    ports:
+      - "8858:8858"
+
+  seata:
+    image: seataio/seata-server:1.6.1
+    container_name: seata
+    ports:
+      - "8091:8091"
+      - "7091:7091"
+    environment:
+      SEATA_IP: 127.0.0.1
+      SEATA_PORT: 8091
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - payment-mysql-data:/var/lib/mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+
+volumes:
+  payment-mysql-data:
+
+

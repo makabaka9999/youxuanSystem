@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/components.tsx","./src/domain.ts","./src/main.tsx","./src/types.ts","./src/vite-env.d.ts","./src/api/backendclient.ts","./src/api/mockapi.ts","./src/pages/adminportal.tsx","./src/pages/merchantportal.tsx","./src/pages/userportal.tsx"],"version":"5.9.3"}

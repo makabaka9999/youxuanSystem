@@ -1,0 +1,36 @@
+server:
+  port: ${GATEWAY_PORT:8080}
+
+spring:
+  application:
+    name: youxuan-gateway-service
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:public}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        enabled: ${NACOS_DISCOVERY_ENABLED:false}
+    sentinel:
+      transport:
+        dashboard: ${SENTINEL_DASHBOARD:127.0.0.1:8858}
+        port: ${SENTINEL_TRANSPORT_PORT:8719}
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss.SSS
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+youxuan:
+  gateway:
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+
+logging:
+  file:
+    path: ${LOG_PATH:logs}
+    name: ${LOG_PATH:logs}/youxuan-gateway-service.log

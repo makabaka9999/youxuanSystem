@@ -1,0 +1,30 @@
+server:
+  port: ${PRODUCT_SERVICE_PORT:8082}
+spring:
+  application:
+    name: youxuan-product-service
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:public}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        enabled: ${NACOS_DISCOVERY_ENABLED:false}
+    sentinel:
+      transport:
+        dashboard: ${SENTINEL_DASHBOARD:127.0.0.1:8858}
+        port: ${SENTINEL_TRANSPORT_PORT:8721}
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss.SSS
+  redis:
+    host: ${REDIS_HOST:127.0.0.1}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
+    database: ${REDIS_DATABASE:1}
+    timeout: ${REDIS_TIMEOUT:3000ms}
+
+logging:
+  file:
+    path: ${LOG_PATH:logs}
+    name: ${LOG_PATH:logs}/youxuan-product-service.log

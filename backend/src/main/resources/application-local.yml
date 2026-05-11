@@ -1,0 +1,7 @@
+logging:
+  level:
+    com.youxuan.platform: DEBUG
+
+spring:
+  flyway:
+    clean-disabled: true

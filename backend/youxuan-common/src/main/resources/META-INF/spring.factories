@@ -1,0 +1,4 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+com.youxuan.common.config.CommonWebAutoConfiguration,\
+com.youxuan.common.config.RedisAutoConfiguration,\
+com.youxuan.common.config.RabbitMqAutoConfiguration

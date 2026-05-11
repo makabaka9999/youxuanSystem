@@ -9,7 +9,7 @@ spring:
         server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
         namespace: ${NACOS_NAMESPACE:public}
         group: ${NACOS_GROUP:DEFAULT_GROUP}
-        enabled: ${NACOS_DISCOVERY_ENABLED:false}
+        enabled: true
     sentinel:
       transport:
         dashboard: ${SENTINEL_DASHBOARD:127.0.0.1:8858}
@@ -55,3 +55,15 @@ youxuan:
       daily-bill-cron: ${FINANCE_DAILY_BILL_CRON:0 10 0 * * ?}
       reconciliation-cron: ${FINANCE_RECONCILIATION_CRON:0 30 1 * * ?}
       settlement-cron: ${FINANCE_SETTLEMENT_CRON:0 0 2 * * ?}
+
+# Dubbo RPC 配置
+dubbo:
+  application:
+    name: ${spring.application.name}
+  registry:
+    address: nacos://${NACOS_SERVER_ADDR:127.0.0.1:8848}
+  protocol:
+    name: dubbo
+    port: ${DUBBO_PORT:20885}
+  scan:
+    base-packages: com.youxuan

@@ -10,7 +10,7 @@ spring:
         server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
         namespace: ${NACOS_NAMESPACE:public}
         group: ${NACOS_GROUP:DEFAULT_GROUP}
-        enabled: ${NACOS_DISCOVERY_ENABLED:false}
+        enabled: true
     sentinel:
       transport:
         dashboard: ${SENTINEL_DASHBOARD:127.0.0.1:8858}
@@ -47,3 +47,15 @@ logging:
   file:
     path: ${LOG_PATH:logs}
     name: ${LOG_PATH:logs}/youxuan-auth-service.log
+
+# Dubbo RPC 配置
+dubbo:
+  application:
+    name: ${spring.application.name}
+  registry:
+    address: nacos://${NACOS_SERVER_ADDR:127.0.0.1:8848}
+  protocol:
+    name: dubbo
+    port: ${DUBBO_PORT:20881}
+  scan:
+    base-packages: com.youxuan

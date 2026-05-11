@@ -14,6 +14,11 @@ spring:
       transport:
         dashboard: ${SENTINEL_DASHBOARD:127.0.0.1:8858}
         port: ${SENTINEL_TRANSPORT_PORT:8721}
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:youxuan_p0}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:root}
   jackson:
     time-zone: Asia/Shanghai
     date-format: yyyy-MM-dd HH:mm:ss.SSS
@@ -23,6 +28,13 @@ spring:
     password: ${REDIS_PASSWORD:}
     database: ${REDIS_DATABASE:1}
     timeout: ${REDIS_TIMEOUT:3000ms}
+
+# 启用 JWT 认证过滤链，签名密钥必须与 auth-service 一致
+youxuan:
+  auth:
+    jwt:
+      enabled: true
+      secret: replace-with-at-least-32-bytes-secret
 
 logging:
   file:

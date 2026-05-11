@@ -51,7 +51,8 @@ public class JwtTokenService {
         }
         try {
             return Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
-        } catch (IllegalArgumentException exception) {
+        } catch (Exception exception) {
+            // 如果 secret 不是合法的 Base64，直接使用 UTF-8 字节作为 HMAC 密钥
             return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         }
     }

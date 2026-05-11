@@ -5,11 +5,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.Cipher;
+import javax.crypto.spec.OAEPParameterSpec;
+import javax.crypto.spec.PSource;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.spec.MGF1ParameterSpec;
 import java.util.Base64;
 
 @Service
@@ -43,8 +46,11 @@ public class RsaKeyService {
     public String decrypt(String encryptedBase64) {
         try {
             byte[] encryptedBytes = Base64.getDecoder().decode(encryptedBase64);
-            Cipher cipher = Cipher.getInstance(CIPHER_ALGORITHM);
-            cipher.init(Cipher.DECRYPT_MODE, privateKey);
+            Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPPadding");
+            // 使用 SHA-256 作为 OAEP 摘要和 MGF1 摘要，与前端 Web Crypto API 的 RSA-OAEP/SHA-256 保持一致
+            OAEPParameterSpec oaepSpec = new OAEPParameterSpec(
+                    "SHA-256", "MGF1", MGF1ParameterSpec.SHA256, PSource.PSpecified.DEFAULT);
+            cipher.init(Cipher.DECRYPT_MODE, privateKey, oaepSpec);
             byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
             return new String(decryptedBytes, StandardCharsets.UTF_8);
         } catch (Exception e) {

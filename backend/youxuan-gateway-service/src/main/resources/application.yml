@@ -39,7 +39,6 @@ logging:
 dubbo:
   application:
     name: ${spring.application.name}
+    qos-enable: false
   registry:
     address: nacos://${NACOS_SERVER_ADDR:127.0.0.1:8848}
-  qos:
-    enable: false

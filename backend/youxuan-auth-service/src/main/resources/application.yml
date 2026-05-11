@@ -52,12 +52,11 @@ logging:
 dubbo:
   application:
     name: ${spring.application.name}
+    qos-port: ${DUBBO_QOS_PORT:22221}
   registry:
     address: nacos://${NACOS_SERVER_ADDR:127.0.0.1:8848}
   protocol:
     name: dubbo
     port: ${DUBBO_PORT:20881}
-  qos:
-    port: ${DUBBO_QOS_PORT:22221}
   scan:
     base-packages: com.youxuan

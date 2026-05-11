@@ -110,6 +110,24 @@ public class OrderRepository {
     }
 
     /**
+     * 统计商家的订单数量，按状态筛选。
+     */
+    public int countByMerchantIdAndStatus(Long merchantId, String orderStatus) {
+        String sql = "SELECT COUNT(*) FROM orders WHERE merchant_id = ? AND order_status = ? AND deleted_at IS NULL";
+        Integer result = jdbcTemplate.queryForObject(sql, Integer.class, merchantId, orderStatus);
+        return result != null ? result : 0;
+    }
+
+    /**
+     * 统计商家在指定日期范围内的订单总金额。
+     */
+    public java.math.BigDecimal sumAmountByMerchantIdAndDate(Long merchantId, String startDate, String endDate) {
+        String sql = "SELECT COALESCE(SUM(payable_amount), 0) FROM orders WHERE merchant_id = ? AND deleted_at IS NULL "
+                + "AND created_at >= ? AND created_at < DATE_ADD(?, INTERVAL 1 DAY)";
+        return jdbcTemplate.queryForObject(sql, java.math.BigDecimal.class, merchantId, startDate, endDate);
+    }
+
+    /**
      * 统计商家的订单数量
      *
      * @param merchantId 商家ID

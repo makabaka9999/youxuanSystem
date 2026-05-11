@@ -90,6 +90,15 @@ public class AfterSaleRepository {
     }
 
     /**
+     * 统计商家的售后单数量，按状态筛选。
+     */
+    public int countByMerchantIdAndStatus(Long merchantId, String status) {
+        String sql = "SELECT COUNT(*) FROM after_sales WHERE merchant_id = ? AND status = ? AND deleted_at IS NULL";
+        Integer result = jdbcTemplate.queryForObject(sql, Integer.class, merchantId, status);
+        return result != null ? result : 0;
+    }
+
+    /**
      * 统计商家的售后单数量
      *
      * @param merchantId 商家ID

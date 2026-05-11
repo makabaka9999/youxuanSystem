@@ -96,7 +96,7 @@ export function App() {
         <div className="brand">
           <div className="brand-mark">优</div>
           <div>
-            <strong>优选 P0</strong>
+            <strong>优选</strong>
             <span>多商户电商平台</span>
           </div>
         </div>
@@ -110,6 +110,7 @@ export function App() {
               onClick={() => setPortal(item)}
             >
               {portalMeta[item].title}
+              <span style={{ marginLeft: 'auto', fontSize: 11, opacity: 0.4 }}>{portalMeta[item].role.slice(0, 4)}</span>
             </button>
           ))}
         </div>

@@ -1,5 +1,11 @@
-import { CheckCircle2, ChevronRight, Loader2 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { Activity, AlertTriangle, ArrowRight, CheckCircle2, ChevronRight, CreditCard, Loader2, PackageCheck, RefreshCcw, ShoppingBag, ShoppingCart, UserRound } from "lucide-react";
 import type { Metric, StatusTone } from "./types";
+
+const iconMap: Record<string, LucideIcon> = {
+  Activity, AlertTriangle, CheckCircle2, CreditCard, PackageCheck,
+  RefreshCcw, ShoppingBag, ShoppingCart, UserRound
+};
 
 export function StatusTag({ label, tone = "neutral" }: { label: string; tone?: StatusTone }) {
   return <span className={`status status-${tone}`}>{label}</span>;
@@ -74,14 +80,14 @@ export function DangerButton({ children }: { children: React.ReactNode }) {
 }
 
 export function EmptyState({ text }: { text: string }) {
-  return <div className="empty-state">{text}</div>;
+  return <div className="empty-cart">{text}</div>;
 }
 
 export function LoadingScreen() {
   return (
     <div className="loading-screen">
-      <Loader2 className="spin" size={26} />
-      正在加载业务数据
+      <div className="spin" />
+      <span>正在加载业务数据</span>
     </div>
   );
 }

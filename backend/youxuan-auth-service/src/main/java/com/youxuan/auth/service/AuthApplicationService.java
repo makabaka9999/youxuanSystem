@@ -23,15 +23,18 @@ public class AuthApplicationService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
     private final AuthSecurityProperties authSecurityProperties;
+    private final RsaKeyService rsaKeyService;
 
     public AuthApplicationService(AuthAccountRepository authAccountRepository,
                                   PasswordEncoder passwordEncoder,
                                   JwtTokenService jwtTokenService,
-                                  AuthSecurityProperties authSecurityProperties) {
+                                  AuthSecurityProperties authSecurityProperties,
+                                  RsaKeyService rsaKeyService) {
         this.authAccountRepository = authAccountRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenService = jwtTokenService;
         this.authSecurityProperties = authSecurityProperties;
+        this.rsaKeyService = rsaKeyService;
     }
 
     public LoginResultDTO login(LoginCommand loginCommand) {
@@ -41,7 +44,8 @@ public class AuthApplicationService {
         if (!ENABLED_STATUS.equals(authAccountDO.getStatus())) {
             throw new BizException(ErrorCode.PERMISSION_DENIED, "账号已停用");
         }
-        if (!passwordEncoder.matches(loginCommand.getPassword(), authAccountDO.getPasswordHash())) {
+        String decryptedPassword = rsaKeyService.decrypt(loginCommand.getPassword());
+        if (!passwordEncoder.matches(decryptedPassword, authAccountDO.getPasswordHash())) {
             throw new BizException(ErrorCode.AUTH_REQUIRED, "账号或密码错误");
         }
         LoginResultDTO loginResultDTO = new LoginResultDTO();

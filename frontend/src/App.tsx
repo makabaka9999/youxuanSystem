@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BadgeCheck,
   Banknote,
   ClipboardList,
   Home,
   LayoutDashboard,
+  LogOut,
   PackageSearch,
   ReceiptText,
   RotateCcw,
@@ -19,15 +20,39 @@ import { fetchBackendHealth, type BackendHealth } from "./api/backendClient";
 import { api } from "./api/mockApi";
 import { LoadingScreen } from "./components";
 import { AdminPortal } from "./pages/AdminPortal";
+import { LoginPage } from "./pages/LoginPage";
 import { MerchantPortal } from "./pages/MerchantPortal";
 import { UserPortal } from "./pages/UserPortal";
-import type { NavItem, Portal } from "./types";
+import type { AuthState, NavItem, Portal } from "./types";
 
 type AppData = {
   user: Awaited<ReturnType<typeof api.getUserHome>>;
   merchant: Awaited<ReturnType<typeof api.getMerchantHome>>;
   admin: Awaited<ReturnType<typeof api.getAdminHome>>;
 };
+
+const STORAGE_KEY = "youxuan_auth";
+
+function loadAuth(): AuthState | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AuthState;
+    if (parsed && parsed.authenticated && parsed.accessToken) {
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function portalFromAuth(auth: AuthState): Portal {
+  const type = auth.currentPrincipal?.principalType;
+  if (type === "USER") return "user";
+  if (type === "MERCHANT_OWNER") return "merchant";
+  return "admin";
+}
 
 const portalMeta = {
   user: {
@@ -74,21 +99,38 @@ const portalMeta = {
 };
 
 export function App() {
-  const [portal, setPortal] = useState<Portal>("admin");
+  const [auth, setAuth] = useState<AuthState | null>(loadAuth);
+  const [portal, setPortal] = useState<Portal>(auth ? portalFromAuth(auth) : "admin");
   const [data, setData] = useState<AppData | null>(null);
   const [backendHealth, setBackendHealth] = useState<BackendHealth>({ connected: false, status: "CHECKING" });
 
   useEffect(() => {
+    if (!auth) return;
     Promise.all([api.getUserHome(), api.getMerchantHome(), api.getAdminHome()]).then(([user, merchant, admin]) => {
       setData({ user, merchant, admin });
     });
     fetchBackendHealth().then(setBackendHealth);
+  }, [auth]);
+
+  const handleLoginSuccess = useCallback((newAuth: AuthState) => {
+    setAuth(newAuth);
+    setPortal(portalFromAuth(newAuth));
   }, []);
+
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY);
+    setAuth(null);
+    setData(null);
+  }, []);
+
+  if (!auth) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  if (!data) return <LoadingScreen />;
 
   const active = portalMeta[portal];
   const nav = useMemo(() => active.nav, [active.nav]);
-
-  if (!data) return <LoadingScreen />;
 
   return (
     <div className="app-shell">
@@ -96,7 +138,7 @@ export function App() {
         <div className="brand">
           <div className="brand-mark">优</div>
           <div>
-            <strong>优选 P0</strong>
+            <strong>优选</strong>
             <span>多商户电商平台</span>
           </div>
         </div>
@@ -110,6 +152,7 @@ export function App() {
               onClick={() => setPortal(item)}
             >
               {portalMeta[item].title}
+              <span style={{ marginLeft: 'auto', fontSize: 11, opacity: 0.4 }}>{portalMeta[item].role.slice(0, 4)}</span>
             </button>
           ))}
         </div>
@@ -125,6 +168,27 @@ export function App() {
             );
           })}
         </nav>
+
+        <div className="sidebar-spacer" />
+
+        <div className="sidebar-user">
+          <div className="sidebar-user-avatar">
+            {auth.currentPrincipal?.displayName?.charAt(0) || "?"}
+          </div>
+          <div className="sidebar-user-info">
+            <span className="sidebar-user-name">{auth.currentPrincipal?.displayName || "用户"}</span>
+            <span className="sidebar-user-role">{active.role}</span>
+          </div>
+          <button
+            type="button"
+            className="sidebar-logout"
+            aria-label="退出登录"
+            onClick={handleLogout}
+            title="退出登录"
+          >
+            <LogOut size={16} />
+          </button>
+        </div>
       </aside>
 
       <main className="main-shell">

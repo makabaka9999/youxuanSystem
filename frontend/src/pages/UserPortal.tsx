@@ -92,7 +92,7 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
           <div className="product-grid">
             {products.map((product) => (
               <article className="product-card" key={product.id}>
-                <img src={product.image} alt={product.name} />
+                <img src={product.image} alt={product.name} loading="lazy" />
                 <div className="product-info">
                   <div className="product-name">{product.name}</div>
                   <div className="muted">{product.storeName}</div>
@@ -141,7 +141,7 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
             {editableCartItems.length === 0 ? <div className="empty-cart">购物车暂无商品</div> : null}
           </div>
           <div className="settle-bar">
-            <span>已选 {selectedCount} 件，按店铺拆分订单，写接口携带 requestId 与幂等 Key</span>
+            <span>已选 {selectedCount} 件，按店铺拆分订单</span>
             <strong>¥{selectedTotal}</strong>
           </div>
         </Card>

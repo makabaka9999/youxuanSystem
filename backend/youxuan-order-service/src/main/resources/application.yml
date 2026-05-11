@@ -71,5 +71,7 @@ dubbo:
   protocol:
     name: dubbo
     port: ${DUBBO_PORT:20883}
+  qos:
+    port: ${DUBBO_QOS_PORT:22223}
   scan:
     base-packages: com.youxuan

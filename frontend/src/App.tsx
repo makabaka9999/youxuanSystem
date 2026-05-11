@@ -25,7 +25,7 @@ import {
   UserRound
 } from "lucide-react";
 import { fetchBackendHealth, type BackendHealth } from "./api/backendClient";
-import { api } from "./api/mockApi";
+import { api } from "./api/backendApi";
 import { LoadingScreen, ToastContainer } from "./components";
 import { AdminPortal } from "./pages/AdminPortal";
 import { LoginPage } from "./pages/LoginPage";

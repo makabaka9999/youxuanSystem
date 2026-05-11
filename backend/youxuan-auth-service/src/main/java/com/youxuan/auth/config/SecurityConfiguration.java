@@ -27,7 +27,23 @@ public class SecurityConfiguration {
                 .authorizeRequests()
                 .antMatchers("/api/v1/auth/**", "/api/v1/health", "/actuator/**").permitAll()
                 .anyRequest().authenticated();
+        // 允许前端跨域访问
+        httpSecurity.cors();
         return httpSecurity.build();
+    }
+
+    @Bean
+    public org.springframework.web.servlet.config.annotation.WebMvcConfigurer corsConfigurer() {
+        return new org.springframework.web.servlet.config.annotation.WebMvcConfigurer() {
+            @Override
+            public void addCorsMappings(org.springframework.web.servlet.config.annotation.CorsRegistry registry) {
+                registry.addMapping("/**")
+                        .allowedOriginPatterns("*")
+                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                        .allowedHeaders("*")
+                        .allowCredentials(true);
+            }
+        };
     }
 
     @Bean

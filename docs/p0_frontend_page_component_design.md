@@ -333,3 +333,413 @@ frontend/
 - 所有列表页支持分页、筛选、空状态、错误重试。
 - 所有高风险动作有二次确认、成功/失败反馈和操作日志入口。
 - 金额、ID、时间、状态文案在三端展示一致。
+
+## 11. 状态管理架构
+
+### 11.1 方案选型
+
+使用 **Zustand** 作为全局状态管理方案，替代 Context（避免深层传递导致的不必要渲染）和 Redux（减少样板代码）。
+
+### 11.2 Store 分层
+
+```
+stores/
+  useAuthStore.ts      # 登录态：Token、当前用户信息、角色
+  useCartStore.ts      # 购物车：商品列表、选中状态、数量（仅用户端）
+  useOrderStore.ts     # 订单：当前订单详情缓存（用户端/商家端）
+  useAdminStore.ts     # 后台：当前筛选条件、审核队列缓存
+```
+
+### 11.3 各 Store 定义
+
+**useAuthStore：**
+```typescript
+interface AuthState {
+  token: string | null;
+  user: User | null;
+  role: Role | null;
+  isAuthenticated: boolean;
+  login: (token: string, user: User) => void;
+  logout: () => void;
+  updateUser: (user: Partial<User>) => void;
+  restoreSession: () => Promise<void>; // 从 localStorage 恢复
+}
+```
+- 持久化：Token 写入 localStorage，用户信息写入内存
+- 跨标签页：不共享，每个标签页独立登录
+
+**useCartStore（仅用户端）：**
+```typescript
+interface CartState {
+  items: CartItem[];
+  checkedIds: Set<string>;
+  totalAmount: string;
+  fetchCart: () => Promise<void>;
+  updateQuantity: (itemId: string, quantity: number) => void;
+  toggleCheck: (itemId: string) => void;
+  toggleCheckAll: (checked: boolean) => void;
+  clearChecked: () => void;
+}
+```
+- 购物车数据以接口返回为准，本地不做持久化
+- 数量修改使用乐观更新，接口失败时回滚
+
+### 11.4 页面级状态
+
+- 列表筛选条件：使用 URL Query Parameters（`?status=PAID&page=1`），刷新不丢失
+- 表单数据：使用组件本地 `useState` / `useReducer`，提交成功后重置
+- 弹窗/抽屉：使用组件本地 `useState`，通过 props 控制
+- 缓存策略遵循第 8 节定义，不跨页面共享接口响应数据
+
+## 12. 核心组件 Props API
+
+### 12.1 DataTable
+
+```typescript
+interface DataTableProps<T> {
+  columns: ColumnDef<T>[];
+  data: T[];
+  loading?: boolean;
+  total: number;
+  page: number;
+  pageSize: number;
+  sortField?: string;
+  sortOrder?: 'asc' | 'desc';
+  onPageChange: (page: number) => void;
+  onPageSizeChange?: (size: number) => void;
+  onSort?: (field: string, order: 'asc' | 'desc') => void;
+  rowKey: string | ((row: T) => string);
+  selectedRowKeys?: string[];
+  onSelectChange?: (keys: string[]) => void;
+  emptyText?: string;
+  bordered?: boolean;
+}
+
+interface ColumnDef<T> {
+  key: string;
+  title: string;
+  dataIndex?: keyof T;
+  render?: (value: any, record: T, index: number) => ReactNode;
+  sortable?: boolean;
+  width?: number | string;
+  fixed?: 'left' | 'right';
+  align?: 'left' | 'center' | 'right';
+}
+```
+
+### 12.2 SearchForm
+
+```typescript
+interface SearchFormProps {
+  fields: SearchField[];
+  values: Record<string, any>;
+  onChange: (values: Record<string, any>) => void;
+  onSearch: () => void;
+  onReset: () => void;
+  loading?: boolean;
+  collapsed?: boolean;     // 默认收起
+  onToggleCollapse?: () => void;
+}
+
+interface SearchField {
+  name: string;
+  label: string;
+  type: 'input' | 'select' | 'date-range' | 'date' | 'number';
+  placeholder?: string;
+  options?: { label: string; value: any }[];
+  rules?: ValidationRule[];
+}
+```
+
+### 12.3 StatusTag
+
+```typescript
+interface StatusTagProps {
+  status: string;
+  type: DomainType;   // order / payment / after-sale / settlement / withdraw
+  size?: 'small' | 'default' | 'large';
+  showDot?: boolean;
+}
+```
+- 颜色和文案从 `domain.ts` 统一映射读取
+- 不允许端上自定义颜色，确保三端一致
+
+### 12.4 ConfirmAction
+
+```typescript
+interface ConfirmActionProps {
+  title?: string;
+  description: string;
+  confirmText?: string;
+  cancelText?: string;
+  danger?: boolean;
+  loading?: boolean;
+  disabled?: boolean;
+  onConfirm: () => Promise<void> | void;
+  children: ReactNode;    // 触发元素
+}
+```
+- 点击触发元素后弹出确认弹窗
+- 确认后自动 loading 状态，防止重复点击
+- 默认标题："确认操作"，默认确认按钮："确定"
+
+### 12.5 AmountText
+
+```typescript
+interface AmountTextProps {
+  value: string | number;
+  currency?: string;        // 默认 "¥"
+  showPositiveSign?: boolean;
+  strikeThrough?: boolean;  // 划线价
+  precision?: number;       // 默认 2
+  size?: 'small' | 'default' | 'large';
+  color?: 'normal' | 'danger' | 'success' | 'warning';
+}
+```
+- 输入为字符串，内部精确计算，避免 JS 浮点数精度问题
+
+### 12.6 ImageUploader
+
+```typescript
+interface ImageUploaderProps {
+  bizType: 'PRODUCT_IMAGE' | 'QUALIFICATION' | 'EVIDENCE' | 'AVATAR';
+  fileList?: UploadFile[];
+  maxCount?: number;
+  onChange?: (files: UploadFile[]) => void;
+  disabled?: boolean;
+  preview?: boolean;        // 默认 true，支持点击预览
+}
+
+interface UploadFile {
+  uid: string;
+  name: string;
+  url: string;
+  status: 'uploading' | 'done' | 'error';
+  size: number;
+  thumbUrl?: string;
+}
+```
+- 上传前自动校验格式和大小
+- 上传中展示进度
+- 上传失败展示错误提示，允许重试
+
+### 12.7 AppLayout
+
+```typescript
+interface AppLayoutProps {
+  portal: 'user' | 'merchant' | 'admin';
+  sidebarMenu?: MenuItem[];
+  topBarActions?: ReactNode;
+  breadcrumb?: BreadcrumbItem[];
+  children: ReactNode;
+  footer?: ReactNode;
+}
+
+interface MenuItem {
+  key: string;
+  label: string;
+  icon?: ReactNode;
+  path?: string;
+  children?: MenuItem[];
+  permissions?: string[];    // 有任一权限才展示
+}
+```
+
+## 13. 响应式设计规范
+
+### 13.1 断点定义
+
+| 断点 | 宽度 | 目标设备 |
+|---|---|---|
+| xs | < 576px | 手机竖屏 |
+| sm | ≥ 576px | 手机横屏 |
+| md | ≥ 768px | 平板 |
+| lg | ≥ 992px | 桌面 |
+| xl | ≥ 1200px | 大屏桌面 |
+
+### 13.2 三端布局策略
+
+| 端 | 默认断点 | 布局说明 |
+|---|---|---|
+| 用户端 H5 | xs ~ md | 全屏流式布局，底部 TabBar 导航，顶部 NavBar |
+| 商家端 Web | lg ~ xl | 左侧侧边栏固定 240px，右侧内容区自适应 |
+| 平台后台 | lg ~ xl | 左侧侧边栏固定 220px，顶部操作栏，内容区最大 1400px 居中 |
+
+### 13.3 响应式组件行为
+
+| 组件 | 桌面端 | 移动端 |
+|---|---|---|
+| DataTable | 全列展示，支持列固定 | 只展示核心 3-4 列，其余通过展开行查看 |
+| SearchForm | 内联展开，多行展示 | 底部弹出 Drawer |
+| Sidebar | 固定展开 | Drawer 形式从左侧滑出 |
+| Modal/Drawer | Modal 居中 | Drawer 底部弹出（全屏 Drawer） |
+| Table 操作栏 | 直接展示按钮 | 收起到「更多」下拉菜单 |
+| 金额/数字 | 正常展示 | 千位分隔符自适应 |
+
+## 14. 错误处理与边界
+
+### 14.1 错误边界层级
+
+```
+<AppErrorBoundary>                  # 全局级：整个应用崩溃兜底
+  <AuthGuard>
+    <PortalErrorBoundary>           # 门户级：当前端（user/merchant/admin）兜底
+      <LayoutErrorBoundary>         # 布局级：侧边栏 / 内容区独立兜底
+        <PageErrorBoundary>         # 页面级：单个页面错误不波及整站
+          <ComponentErrorBoundary>  # 组件级：DataTable / SearchForm 等独立组件
+          </ComponentErrorBoundary>
+        </PageErrorBoundary>
+      </LayoutErrorBoundary>
+    </PortalErrorBoundary>
+  </AuthGuard>
+</AppErrorBoundary>
+```
+
+### 14.2 各层级 Fallback 设计
+
+| 层级 | Fallback 内容 | 操作 |
+|---|---|---|
+| 全局级 | 全屏错误页（Logo + "应用出错了" + 重试按钮） | 清空登录态回到登录页 或 刷新 |
+| 门户级 | 半屏错误卡片 + 返回首页按钮 | 返回当前门户首页 |
+| 页面级 | 页面内嵌错误提示 + 重试按钮 | 重新加载当前页面 |
+| 组件级 | 组件区域展示 ErrorState | 重新加载当前组件数据 |
+
+### 14.3 请求错误统一处理
+
+```typescript
+// api/backendClient.ts 中的统一处理逻辑
+switch (error.code) {
+  case 'AUTH_REQUIRED':
+  case 'TOKEN_EXPIRED':
+    useAuthStore.getState().logout();
+    redirectToLogin(pageContext);  // 保留来源页
+    break;
+  case 'PERMISSION_DENIED':
+    notification.warn('暂无权限执行此操作');
+    break;
+  case 'RATE_LIMITED':
+    notification.warn('操作过于频繁，请稍后再试');
+    break;
+  case 'INTERNAL_ERROR':
+    notification.error('服务异常，请稍后重试');
+    break;
+  default:
+    notification.error(error.message || '操作失败');
+}
+```
+
+### 14.4 网络异常处理
+
+- 网络断开：axios 拦截器捕获 `Network Error`，展示全局离线提示条
+- 超时：统一设置 axios timeout = 15s，超时后提示用户重试
+- 重试策略：关键写请求（下单、支付、售后提交）在超时/网络错误时自动重试 1 次，幂等 Key 保证不重复处理
+
+## 15. 测试策略
+
+### 15.1 测试框架选型
+
+| 类型 | 工具 | 范围 |
+|---|---|---|
+| 单元测试 | Vitest + Testing Library | 工具函数、hooks、Store |
+| 组件测试 | Vitest + Testing Library | 公共 UI 组件 |
+| E2E 测试 | Playwright | 三端核心业务流程 |
+| 视觉回归 | Playwright Screenshot | 关键页面截图对比 |
+
+### 15.2 测试覆盖范围
+
+**单元测试必测：**
+- `domain.ts`：状态映射函数（状态 → 文案、状态 → 颜色）
+- `formatters`：金额格式化、时间格式化、手机号脱敏
+- `validators`：手机号校验、金额校验、表单规则
+- `idempotency.ts`：幂等 Key 生成逻辑
+
+**组件测试必测：**
+- `StatusTag`：传入不同状态，渲染正确的文案和颜色
+- `AmountText`：传入金额字符串，渲染正确格式
+- `ConfirmAction`：确认弹窗的打开/关闭/确认/取消交互
+- `ImageUploader`：文件选择、格式校验、上传进度展示
+
+**E2E 测试必测（Playwright）：**
+
+用户端：
+```
+1. 登录 → 浏览商品 → 加购 → 下单 → 支付 → 查看订单
+2. 登录 → 下单 → 申请退款 → 查看售后进度
+3. 未登录访问受保护页面 → 跳转登录页 → 登录后回到原页面
+```
+
+商家端：
+```
+4. 入驻申请 → 平台审核 → 创建商品 → 审核 → 上架
+5. 查看订单 → 发货 → 查看物流
+6. 查看账单 → 申请提现
+```
+
+平台后台：
+```
+7. 商家审核 → 通过 → 查看商家详情
+8. 商品审核 → 通过/拒绝
+9. 异常池处理 → 关闭异常
+10. 结算审核 → 通过 → 提现审核 → 打款
+```
+
+### 15.3 测试命令
+
+```powershell
+# 运行单元测试
+npm run test
+
+# 运行测试并生成覆盖率
+npm run test:coverage
+
+# 运行 E2E 测试（需先启动 dev server）
+npm run test:e2e
+
+# 更新视觉回归截图
+npm run test:e2e -- --update-snapshots
+```
+
+## 16. 性能优化
+
+### 16.1 构建优化
+
+| 策略 | 实现方式 | 预期效果 |
+|---|---|---|
+| 代码分割 | React.lazy + Suspense，按路由拆分 | 首屏 JS 减少 40% |
+| 三端独立构建 | 每个 portal 独立 entry，不打包无用代码 | 商家端/后台不加载用户端代码 |
+| Tree Shaking | Vite 默认，只引入 lucide-react 用到的图标 | 图标体积减少 90% |
+| CSS 按需加载 | 全局 CSS 提取公共样式，页面级 CSS 懒加载 | 首屏 CSS 减少 60% |
+| 图片自动优化 | 使用 CDN 图片处理参数（?x-oss-process=image/resize） | 列表图压缩至 200px 宽 |
+
+### 16.2 运行时优化
+
+| 场景 | 方案 |
+|---|---|
+| 长列表 | DataTable 内部虚拟滚动（>100 条时自动启用） |
+| 重复渲染 | React.memo + useMemo，仅在依赖变化时重渲染 |
+| 图片懒加载 | IntersectionObserver 实现，进入视口前不加载 |
+| 大表单 | 表单分步或分区块，避免整个表单重新渲染 |
+| 频繁更新 | 购物车数量修改使用防抖（debounce 300ms） |
+| 大对象渲染 | json-bigint 处理精度，避免大对象直接渲染 |
+
+### 16.3 性能预算
+
+| 指标 | 用户端 H5 | 商家端 Web | 平台后台 |
+|---|---|---|---|
+| 首屏 JS 体积 | ≤ 200KB | ≤ 350KB | ≤ 400KB |
+| 首屏加载时间（3G）| ≤ 3s | ≤ 4s | ≤ 4s |
+| TTI（Time to Interactive）| ≤ 3.5s | ≤ 4.5s | ≤ 4.5s |
+| 首屏 LCP | ≤ 2.5s | ≤ 3s | ≤ 3s |
+| Lighthouse 评分 | ≥ 85 | ≥ 80 | ≥ 80 |
+
+### 16.4 监控与埋点
+
+P0 前端接入基础性能监控：
+
+| 指标 | 实现方式 |
+|---|---|
+| JS 错误率 | window.onerror + Promise 异常捕获 |
+| API 成功率 | axios 拦截器统计请求耗时和状态码 |
+| 页面性能 | Performance API 采集 FCP / LCP / TTI |
+| 用户行为 | 核心操作（下单、支付、售后）上报埋点 |
+| 上报方式 | POST 到 `/api/v1/tracking/events`，批量每 30s 上报一次 |

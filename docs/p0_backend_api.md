@@ -977,3 +977,815 @@ Header：必须包含 `X-Request-Id`、`X-Idempotency-Key`。
 - 订单状态变化必须写入 `order_status_logs`。
 - 支付、退款、提现、结算、冻结、解冻必须写入 `account_flow_records`。
 - 日志至少保留 180 天，账务和审计数据长期保留。
+
+## 11. 数据库核心表结构
+
+本文档基于 `database/p0_schema.sql` 自动生成，表名和字段与实际数据库一致。
+
+通用字段约定：
+- 所有表包含 `created_at`、`updated_at`（自动更新）、`deleted_at`（软删除）、`version`（乐观锁）
+- 金额统一 `DECIMAL(18,2)`，状态统一 `VARCHAR(32)`，ID 统一 `BIGINT`
+
+### 11.1 用户与地址
+
+**`users` — 用户表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| mobile | VARCHAR(20) | 手机号，唯一索引 |
+| password_hash | VARCHAR(255) | 密码哈希 |
+| nickname | VARCHAR(64) | 昵称 |
+| avatar_url | VARCHAR(500) | 头像 URL |
+| status | VARCHAR(32) | ENABLED / DISABLED |
+| last_login_at | DATETIME(3) | 最后登录时间 |
+| remark | VARCHAR(500) | 备注 |
+
+**`user_addresses` — 收货地址表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| user_id | BIGINT | 用户 ID，外键 |
+| receiver_name | VARCHAR(64) | 收货人姓名 |
+| receiver_mobile | VARCHAR(20) | 收货手机号 |
+| province | VARCHAR(64) | 省 |
+| city | VARCHAR(64) | 市 |
+| district | VARCHAR(64) | 区县 |
+| detail_address | VARCHAR(255) | 详细地址 |
+| is_default | TINYINT | 是否默认地址 |
+| status | VARCHAR(32) | ENABLED / DISABLED |
+| remark | VARCHAR(500) | 备注 |
+
+### 11.2 商品与类目
+
+**`categories` — 类目表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| parent_id | BIGINT | 父级类目 ID，自引用外键 |
+| category_name | VARCHAR(64) | 类目名称 |
+| level | INT | 层级 |
+| sort_no | INT | 排序 |
+| status | VARCHAR(32) | ENABLED / DISABLED |
+| remark | VARCHAR(500) | 备注 |
+
+**`products` — 商品 SPU 表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| product_no | VARCHAR(64) | 商品编号，唯一索引 |
+| merchant_id | BIGINT | 商家 ID，外键 |
+| store_id | BIGINT | 店铺 ID，外键 |
+| category_id | BIGINT | 类目 ID，外键 |
+| product_name | VARCHAR(255) | 商品名称（FULLTEXT 索引） |
+| main_image_url | VARCHAR(500) | 主图 URL |
+| detail_html | MEDIUMTEXT | 商品详情 HTML（FULLTEXT 索引）|
+| audit_status | VARCHAR(32) | PENDING / APPROVED / REJECTED |
+| sale_status | VARCHAR(32) | ON_SALE / OFF_SALE |
+| reject_reason | VARCHAR(500) | 驳回原因 |
+| remark | VARCHAR(500) | 备注 |
+
+**`product_skus` — 商品 SKU 表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| sku_no | VARCHAR(64) | SKU 编号，唯一索引 |
+| product_id | BIGINT | 商品 ID，外键 |
+| sku_name | VARCHAR(255) | SKU 名称 |
+| sale_price | DECIMAL(18,2) | 售价 |
+| original_price | DECIMAL(18,2) | 划线价 |
+| sku_attrs | JSON | 规格属性 |
+| status | VARCHAR(32) | ENABLED / DISABLED |
+| remark | VARCHAR(500) | 备注 |
+| 约束 | | CHECK (sale_price <= original_price) |
+
+**`sku_inventories` — SKU 库存表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| sku_id | BIGINT | SKU ID，唯一索引/外键 |
+| total_stock | INT | 总库存 |
+| locked_stock | INT | 锁定库存（已下单未支付） |
+| available_stock | INT | 可售库存 |
+| status | VARCHAR(32) | ENABLED / DISABLED |
+| remark | VARCHAR(500) | 备注 |
+| 约束 | | CHECK (total_stock >= 0 AND locked_stock >= 0 AND available_stock >= 0) |
+
+**`product_audit_records` — 商品审核记录表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| product_id | BIGINT | 商品 ID，外键 |
+| merchant_id | BIGINT | 商家 ID，外键 |
+| audit_status | VARCHAR(32) | APPROVED / REJECTED |
+| audit_user_id | BIGINT | 审核人 ID，外键 |
+| audit_reason | VARCHAR(500) | 审核意见 |
+| audited_at | DATETIME(3) | 审核时间 |
+| remark | VARCHAR(500) | 备注 |
+
+### 11.3 购物车与订单
+
+**`carts` — 购物车表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| user_id | BIGINT | 用户 ID，外键 |
+| store_id | BIGINT | 店铺 ID，外键 |
+| product_id | BIGINT | 商品 ID，外键 |
+| sku_id | BIGINT | SKU ID，外键 |
+| quantity | INT | 购买数量，> 0 |
+| checked | TINYINT | 是否选中 |
+| status | VARCHAR(32) | ENABLED / DISABLED |
+| remark | VARCHAR(500) | 备注 |
+| 索引 | | UNIQUE (user_id, sku_id) |
+
+**`orders` — 订单主表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| order_no | VARCHAR(64) | 订单号，唯一索引 |
+| user_id | BIGINT | 用户 ID，外键 |
+| merchant_id | BIGINT | 商家 ID，外键 |
+| store_id | BIGINT | 店铺 ID，外键 |
+| order_status | VARCHAR(32) | CREATED / PAID / SHIPPED / COMPLETED / CANCELED / REFUNDING / CLOSED |
+| pay_status | VARCHAR(32) | UNPAID / PAID / REFUNDED / PART_REFUNDED |
+| total_amount | DECIMAL(18,2) | 商品总额 |
+| freight_amount | DECIMAL(18,2) | 运费 |
+| discount_amount | DECIMAL(18,2) | 优惠金额，P0 默认 0 |
+| payable_amount | DECIMAL(18,2) | 应付金额 |
+| paid_amount | DECIMAL(18,2) | 实付金额 |
+| receiver_snapshot | JSON | 收货信息快照 |
+| paid_at | DATETIME(3) | 支付时间 |
+| shipped_at | DATETIME(3) | 发货时间 |
+| completed_at | DATETIME(3) | 完成时间 |
+| canceled_at | DATETIME(3) | 取消时间 |
+| cancel_reason | VARCHAR(255) | 取消原因 |
+| remark | VARCHAR(500) | 备注 |
+| 索引 | | (order_status, created_at), (merchant_id, order_status, created_at) |
+
+**`order_items` — 订单明细表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| order_id | BIGINT | 订单 ID，外键 |
+| order_no | VARCHAR(64) | 订单号 |
+| product_id | BIGINT | 商品 ID，外键 |
+| sku_id | BIGINT | SKU ID，外键 |
+| product_snapshot | JSON | 商品快照（名称/图片/属性/单价）|
+| quantity | INT | 购买数量 |
+| sale_price | DECIMAL(18,2) | 成交单价 |
+| total_amount | DECIMAL(18,2) | 明细总额 |
+| refund_status | VARCHAR(32) | NONE / REFUNDING / REFUNDED / PART_REFUNDED |
+| refunded_amount | DECIMAL(18,2) | 已退款金额 |
+| refundable_amount | DECIMAL(18,2) | 可退金额（受 CHECK 约束 ≤ refundable_amount）|
+| status | VARCHAR(32) | ENABLED / DISABLED |
+| remark | VARCHAR(500) | 备注 |
+
+**`order_status_logs` — 订单状态日志表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| order_id | BIGINT | 订单 ID，外键 |
+| order_no | VARCHAR(64) | 订单号 |
+| from_status | VARCHAR(32) | 原状态 |
+| to_status | VARCHAR(32) | 新状态 |
+| operator_type | VARCHAR(32) | USER / MERCHANT / PLATFORM / SYSTEM |
+| operator_id | BIGINT | 操作人 ID |
+| reason | VARCHAR(500) | 原因 |
+| request_id | VARCHAR(64) | 请求 ID |
+| remark | VARCHAR(500) | 备注 |
+
+**`order_shipments` — 订单发货物流表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| order_id | BIGINT | 订单 ID，唯一索引/外键 |
+| order_no | VARCHAR(64) | 订单号 |
+| merchant_id | BIGINT | 商家 ID，外键 |
+| logistics_company | VARCHAR(64) | 物流公司 |
+| tracking_no | VARCHAR(128) | 运单号 |
+| shipped_by | BIGINT | 发货操作人 ID，外键 |
+| shipped_at | DATETIME(3) | 发货时间 |
+| status | VARCHAR(32) | SHIPPED / SIGNED |
+| remark | VARCHAR(500) | 备注 |
+
+### 11.4 支付与售后
+
+**`payment_orders` — 支付单表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| payment_no | VARCHAR(64) | 支付单号，唯一索引 |
+| order_id | BIGINT | 订单 ID，唯一索引/外键 |
+| order_no | VARCHAR(64) | 订单号 |
+| user_id | BIGINT | 用户 ID，外键 |
+| channel | VARCHAR(32) | WECHAT / ALIPAY |
+| pay_amount | DECIMAL(18,2) | 支付金额，> 0 |
+| pay_status | VARCHAR(32) | INIT / PAYING / SUCCESS / FAILED / CLOSED |
+| third_trade_no | VARCHAR(128) | 第三方交易号 |
+| idempotent_key | VARCHAR(128) | 幂等 Key，唯一索引 |
+| paid_at | DATETIME(3) | 支付成功时间 |
+| callback_payload | JSON | 回调摘要 |
+| remark | VARCHAR(500) | 备注 |
+| 索引 | | (channel, pay_status) |
+
+**`after_sales` — 售后单表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| after_sale_no | VARCHAR(64) | 售后单号，唯一索引 |
+| order_id | BIGINT | 订单 ID，外键 |
+| order_item_id | BIGINT | 订单项 ID，外键 |
+| user_id | BIGINT | 用户 ID，外键 |
+| merchant_id | BIGINT | 商家 ID，外键 |
+| type | VARCHAR(32) | REFUND_ONLY / RETURN_REFUND |
+| status | VARCHAR(32) | APPLYING / MERCHANT_APPROVED / MERCHANT_REJECTED / USER_RETURNED / PLATFORM_INTERVENING / CLOSED / COMPLETED |
+| apply_amount | DECIMAL(18,2) | 申请退款金额 |
+| approved_amount | DECIMAL(18,2) | 同意退款金额 |
+| reason | VARCHAR(255) | 申请原因 |
+| description | VARCHAR(1000) | 说明 |
+| evidence_urls | JSON | 凭证图片 URL 数组 |
+| merchant_reason | VARCHAR(500) | 商家处理意见 |
+| platform_reason | VARCHAR(500) | 平台处理意见 |
+| remark | VARCHAR(500) | 备注 |
+| 约束 | | CHECK (approved_amount <= apply_amount) |
+
+**`return_shipments` — 退货物流表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| after_sale_id | BIGINT | 售后单 ID，唯一索引/外键 |
+| logistics_company | VARCHAR(64) | 物流公司 |
+| tracking_no | VARCHAR(128) | 运单号 |
+| shipped_at | DATETIME(3) | 用户退货时间 |
+| received_at | DATETIME(3) | 商家收货时间 |
+| status | VARCHAR(32) | SHIPPED / RECEIVED |
+| remark | VARCHAR(500) | 备注 |
+
+**`refund_orders` — 退款单表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| refund_no | VARCHAR(64) | 退款单号，唯一索引 |
+| payment_id | BIGINT | 支付单 ID，外键 |
+| payment_no | VARCHAR(64) | 支付单号 |
+| order_id | BIGINT | 订单 ID，外键 |
+| after_sale_id | BIGINT | 售后单 ID，外键 |
+| refund_amount | DECIMAL(18,2) | 退款金额，> 0 |
+| refund_status | VARCHAR(32) | INIT / PROCESSING / SUCCESS / FAILED |
+| channel | VARCHAR(32) | 退款渠道 |
+| third_refund_no | VARCHAR(128) | 第三方退款号 |
+| idempotent_key | VARCHAR(128) | 幂等 Key，唯一索引 |
+| fail_reason | VARCHAR(500) | 失败原因 |
+| refunded_at | DATETIME(3) | 退款成功时间 |
+| remark | VARCHAR(500) | 备注 |
+
+### 11.5 商家与店铺
+
+**`merchants` — 商家主体表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| merchant_no | VARCHAR(64) | 商家编号，唯一索引 |
+| owner_user_id | BIGINT | 老板用户 ID，外键 |
+| company_name | VARCHAR(128) | 主体名称 |
+| license_no | VARCHAR(64) | 营业执照号，唯一索引 |
+| contact_name | VARCHAR(64) | 联系人 |
+| contact_mobile | VARCHAR(20) | 联系电话 |
+| audit_status | VARCHAR(32) | PENDING / APPROVED / REJECTED |
+| status | VARCHAR(32) | ENABLED / FROZEN / DISABLED |
+| reject_reason | VARCHAR(500) | 驳回原因 |
+| approved_at | DATETIME(3) | 审核通过时间 |
+| remark | VARCHAR(500) | 备注 |
+
+**`stores` — 店铺表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| merchant_id | BIGINT | 商家 ID，唯一索引/外键 |
+| store_no | VARCHAR(64) | 店铺编号，唯一索引 |
+| store_name | VARCHAR(128) | 店铺名称 |
+| logo_url | VARCHAR(500) | Logo URL |
+| contact_mobile | VARCHAR(20) | 店铺联系电话 |
+| category_id | BIGINT | 主营类目 ID，外键 |
+| status | VARCHAR(32) | ENABLED / FROZEN / CLOSED / DISABLED |
+| remark | VARCHAR(500) | 备注 |
+
+**`merchant_staffs` — 商家员工表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| merchant_id | BIGINT | 商家 ID，外键 |
+| user_id | BIGINT | 用户 ID，外键 |
+| staff_name | VARCHAR(64) | 员工姓名 |
+| role_type | VARCHAR(32) | OWNER / STAFF |
+| menu_permissions | JSON | 菜单权限编码列表 |
+| status | VARCHAR(32) | ENABLED / DISABLED |
+| last_login_at | DATETIME(3) | 最后登录时间 |
+| remark | VARCHAR(500) | 备注 |
+| 索引 | | UNIQUE (merchant_id, user_id) |
+
+**`merchant_settlement_accounts` — 商家结算账户表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| merchant_id | BIGINT | 商家 ID，外键 |
+| account_type | VARCHAR(32) | BANK_CARD / ALIPAY / WECHAT |
+| account_name | VARCHAR(128) | 收款户名 |
+| account_no_encrypted | VARCHAR(512) | 加密账号 |
+| account_no_masked | VARCHAR(64) | 脱敏账号 |
+| bank_name | VARCHAR(128) | 银行名称 |
+| audit_status | VARCHAR(32) | PENDING / APPROVED / REJECTED |
+| status | VARCHAR(32) | ENABLED / DISABLED |
+| remark | VARCHAR(500) | 备注 |
+
+### 11.6 账单与结算
+
+**`merchant_bills` — 商家日账单表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| merchant_id | BIGINT | 商家 ID，外键 |
+| bill_date | DATE | 账单日期 |
+| order_amount | DECIMAL(18,2) | 订单收入 |
+| freight_amount | DECIMAL(18,2) | 运费 |
+| refund_amount | DECIMAL(18,2) | 退款金额 |
+| commission_amount | DECIMAL(18,2) | 平台佣金 |
+| adjustment_amount | DECIMAL(18,2) | 调整金额 |
+| payable_amount | DECIMAL(18,2) | 应结金额 |
+| status | VARCHAR(32) | GENERATED / CONFIRMED / SETTLED |
+| remark | VARCHAR(500) | 备注 |
+| 索引 | | UNIQUE (merchant_id, bill_date) |
+
+**`settlement_orders` — 结算单表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| settlement_no | VARCHAR(64) | 结算单号，唯一索引 |
+| merchant_id | BIGINT | 商家 ID，外键 |
+| start_date | DATE | 结算开始日 |
+| end_date | DATE | 结算结束日 |
+| order_amount | DECIMAL(18,2) | 订单金额 |
+| refund_amount | DECIMAL(18,2) | 退款冲账 |
+| commission_amount | DECIMAL(18,2) | 平台佣金 |
+| frozen_amount | DECIMAL(18,2) | 冻结金额 |
+| payable_amount | DECIMAL(18,2) | 应付金额 |
+| status | VARCHAR(32) | PENDING_AUDIT / APPROVED / REJECTED / PAID |
+| audit_user_id | BIGINT | 审核人 ID，外键 |
+| audit_reason | VARCHAR(500) | 审核意见 |
+| approved_at | DATETIME(3) | 审核时间 |
+| remark | VARCHAR(500) | 备注 |
+| 索引 | | UNIQUE (merchant_id, start_date, end_date) |
+
+**`settlement_order_items` — 结算明细表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| settlement_id | BIGINT | 结算单 ID，外键 |
+| merchant_id | BIGINT | 商家 ID，外键 |
+| order_id | BIGINT | 订单 ID，外键 |
+| order_item_id | BIGINT | 订单项 ID，外键 |
+| bill_id | BIGINT | 商家账单 ID，外键 |
+| payable_amount | DECIMAL(18,2) | 明细应结金额 |
+| commission_amount | DECIMAL(18,2) | 明细佣金 |
+| refund_amount | DECIMAL(18,2) | 明细退款 |
+| status | VARCHAR(32) | ENABLED / DISABLED |
+| remark | VARCHAR(500) | 备注 |
+| 索引 | | UNIQUE (settlement_id, order_item_id) |
+
+**`withdraw_orders` — 提现单表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| withdraw_no | VARCHAR(64) | 提现单号，唯一索引 |
+| merchant_id | BIGINT | 商家 ID，外键 |
+| account_id | BIGINT | 结算账户 ID，外键 |
+| settlement_id | BIGINT | 结算单 ID，外键 |
+| amount | DECIMAL(18,2) | 提现金额，> 0 |
+| status | VARCHAR(32) | PENDING_AUDIT / APPROVED / REJECTED / PAYING / SUCCESS / FAILED |
+| audit_user_id | BIGINT | 审核人 ID，外键 |
+| audit_reason | VARCHAR(500) | 审核意见 |
+| fail_reason | VARCHAR(500) | 打款失败原因 |
+| paid_at | DATETIME(3) | 打款成功时间 |
+| idempotent_key | VARCHAR(128) | 幂等 Key，唯一索引 |
+| remark | VARCHAR(500) | 备注 |
+
+### 11.7 审计与异常
+
+**`operation_logs` — 操作日志表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| request_id | VARCHAR(64) | 请求 ID |
+| operator_type | VARCHAR(32) | USER / MERCHANT / PLATFORM / SYSTEM |
+| operator_id | BIGINT | 操作人 ID |
+| operator_name | VARCHAR(64) | 操作人名称 |
+| merchant_id | BIGINT | 商家 ID，外键 |
+| module_code | VARCHAR(64) | 模块编码 |
+| action_code | VARCHAR(64) | 动作编码 |
+| target_type | VARCHAR(64) | 对象类型 |
+| target_id | VARCHAR(64) | 对象 ID |
+| biz_type | VARCHAR(64) | 业务类型 |
+| biz_no | VARCHAR(64) | 业务单号 |
+| before_snapshot | JSON | 操作前状态 |
+| after_snapshot | JSON | 操作后状态 |
+| request_ip | VARCHAR(64) | 请求 IP |
+| user_agent | VARCHAR(500) | User-Agent |
+| result | VARCHAR(32) | SUCCESS / FAILED |
+| fail_reason | VARCHAR(500) | 失败原因 |
+| status | VARCHAR(32) | ENABLED |
+| remark | VARCHAR(500) | 备注 |
+| 索引 | | (module_code, action_code, created_at), (target_type, target_id) |
+
+**`exception_orders` — 异常单表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| exception_no | VARCHAR(64) | 异常单号，唯一索引 |
+| exception_type | VARCHAR(32) | ORDER / PAYMENT / REFUND / STOCK / RECONCILE |
+| biz_no | VARCHAR(64) | 关联业务单号 |
+| order_id | BIGINT | 订单 ID，外键 |
+| merchant_id | BIGINT | 商家 ID，外键 |
+| severity | VARCHAR(32) | LOW / MEDIUM / HIGH |
+| status | VARCHAR(32) | PENDING / PROCESSING / RESOLVED / CLOSED |
+| reason | VARCHAR(500) | 异常原因 |
+| suggestion | VARCHAR(500) | 建议处理动作 |
+| handle_result | VARCHAR(500) | 处理结果 |
+| handled_by | BIGINT | 处理人 ID，外键 |
+| handled_at | DATETIME(3) | 处理时间 |
+| remark | VARCHAR(500) | 备注 |
+
+### 11.8 幂等、账务与对账
+
+**`idempotent_records` — 幂等记录表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| idempotency_key | VARCHAR(128) | 幂等 Key，唯一索引 |
+| request_id | VARCHAR(64) | 请求 ID |
+| request_hash | VARCHAR(128) | 请求参数哈希（用于校验参数一致性）|
+| biz_type | VARCHAR(64) | 业务类型 |
+| biz_id | VARCHAR(64) | 业务 ID |
+| status | VARCHAR(32) | PROCESSING / SUCCESS / FAILED |
+| response_json | JSON | 成功响应快照 |
+| expired_at | DATETIME(3) | 过期时间 |
+
+**`account_flow_records` — 账务流水表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| flow_no | VARCHAR(64) | 流水号，唯一索引 |
+| merchant_id | BIGINT | 商家 ID，外键 |
+| biz_type | VARCHAR(32) | ORDER / REFUND / COMMISSION / SETTLEMENT / WITHDRAW / FREEZE / ADJUST |
+| biz_no | VARCHAR(64) | 关联业务单号 |
+| direction | VARCHAR(32) | IN / OUT / FREEZE / UNFREEZE |
+| amount | DECIMAL(18,2) | 发生金额 |
+| balance_before | DECIMAL(18,2) | 变动前余额 |
+| balance_after | DECIMAL(18,2) | 变动后余额 |
+| frozen_after | DECIMAL(18,2) | 变动后冻结金额 |
+| status | VARCHAR(32) | SUCCESS / FAILED |
+| occurred_at | DATETIME(3) | 发生时间 |
+| remark | VARCHAR(500) | 备注 |
+
+**`reconciliation_records` — 对账记录表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| reconcile_no | VARCHAR(64) | 对账编号，唯一索引 |
+| channel | VARCHAR(32) | 支付渠道 |
+| bill_date | DATE | 对账日期 |
+| biz_type | VARCHAR(32) | PAYMENT / REFUND |
+| biz_no | VARCHAR(64) | 平台业务单号 |
+| third_trade_no | VARCHAR(128) | 渠道交易号 |
+| platform_amount | DECIMAL(18,2) | 平台金额 |
+| channel_amount | DECIMAL(18,2) | 渠道金额 |
+| diff_type | VARCHAR(32) | NONE / PLATFORM_MISSING / CHANNEL_MISSING / AMOUNT_DIFF |
+| handle_status | VARCHAR(32) | PENDING / PROCESSING / RESOLVED |
+| handle_result | VARCHAR(500) | 处理结果 |
+| remark | VARCHAR(500) | 备注 |
+
+### 11.9 系统配置
+
+**`system_configs` — 系统配置表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| config_key | VARCHAR(128) | 配置键，唯一索引 |
+| config_value | VARCHAR(2000) | 配置值 |
+| config_desc | VARCHAR(500) | 配置说明 |
+| status | VARCHAR(32) | ENABLED / DISABLED |
+| remark | VARCHAR(500) | 备注 |
+
+### 11.10 权限与角色
+
+**`roles` — 角色表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| role_code | VARCHAR(64) | 角色编码，唯一索引 |
+| role_name | VARCHAR(64) | 角色名称 |
+| role_scope | VARCHAR(32) | USER / MERCHANT / PLATFORM |
+| status | VARCHAR(32) | ENABLED / DISABLED |
+
+**`permissions` — 权限表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| permission_code | VARCHAR(128) | 权限编码，唯一索引 |
+| permission_name | VARCHAR(128) | 权限名称 |
+| permission_scope | VARCHAR(32) | USER / MERCHANT / PLATFORM |
+| resource_type | VARCHAR(32) | API / MENU / ACTION |
+| status | VARCHAR(32) | ENABLED / DISABLED |
+
+**`role_permissions` — 角色权限关系表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| role_id | BIGINT | 角色 ID，外键 |
+| permission_id | BIGINT | 权限 ID，外键 |
+| 索引 | | UNIQUE (role_id, permission_id) |
+
+**`user_roles` — 主体角色关系表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| principal_type | VARCHAR(32) | USER / MERCHANT_STAFF / PLATFORM_ADMIN |
+| principal_id | BIGINT | 主体 ID |
+| role_id | BIGINT | 角色 ID，外键 |
+| 索引 | | UNIQUE (principal_type, principal_id, role_id) |
+
+**`platform_admins` — 平台后台账号表**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | BIGINT | 主键 |
+| username | VARCHAR(64) | 登录名，唯一索引 |
+| password_hash | VARCHAR(255) | 密码哈希 |
+| display_name | VARCHAR(64) | 展示名 |
+| mobile | VARCHAR(20) | 手机号 |
+| status | VARCHAR(32) | ENABLED / DISABLED |
+| last_login_at | DATETIME(3) | 最后登录时间 |
+| remark | VARCHAR(500) | 备注 |
+
+## 12. RabbitMQ 事件定义
+
+### 12.1 事件路由规范
+
+| 交换机 | 类型 | 说明 |
+|---|---|---|
+| youxuan.order.exchange | TOPIC | 订单领域事件 |
+| youxuan.payment.exchange | TOPIC | 支付领域事件 |
+| youxuan.after-sale.exchange | TOPIC | 售后领域事件 |
+| youxuan.merchant.exchange | TOPIC | 商家领域事件 |
+| youxuan.finance.exchange | TOPIC | 财务领域事件 |
+| youxuan.dlx.exchange | DIRECT | 死信交换机（延迟队列）|
+
+### 12.2 订单事件
+
+| 事件 | Routing Key | 说明 | 消费者 |
+|---|---|---|---|
+| OrderCreatedEvent | order.created | 订单创建 | 库存锁定、日志记录 |
+| OrderPaidEvent | order.paid | 订单支付成功 | 通知商家、写入账务流水 |
+| OrderShippedEvent | order.shipped | 商家已发货 | 通知用户、超时自动确认收货计时器 |
+| OrderCompletedEvent | order.completed | 订单完成 | 更新店铺评分数据 |
+| OrderCanceledEvent | order.canceled | 订单取消 | 释放库存、退款处理 |
+| OrderRefundingEvent | order.refunding | 退款中 | 状态流转 |
+| OrderClosedEvent | order.closed | 订单关闭 | 最终状态清理 |
+
+**OrderCreatedEvent 消息体：**
+```json
+{
+  "eventId": "evt-uuid",
+  "eventType": "OrderCreatedEvent",
+  "timestamp": "2026-05-11T10:00:00.000Z",
+  "data": {
+    "orderId": "50001",
+    "orderNo": "O202605110001",
+    "userId": "10001",
+    "merchantId": "80001",
+    "storeId": "90001",
+    "payableAmount": "199.00",
+    "orderItems": [
+      { "skuId": "30001", "quantity": 2 }
+    ]
+  }
+}
+```
+
+### 12.3 支付事件
+
+| 事件 | Routing Key | 说明 | 消费者 |
+|---|---|---|---|
+| PaymentSuccessEvent | payment.success | 支付成功 | 更新订单支付状态、账务流水 |
+| PaymentFailedEvent | payment.failed | 支付失败 | 订单转回待支付 |
+| PaymentRefundEvent | payment.refund | 退款完成 | 更新退款状态 |
+| PaymentAbnormalEvent | payment.abnormal | 支付异常 | 写入异常池 |
+
+### 12.4 延时队列（死信队列实现）
+
+| 队列 | 延迟时间 | 用途 |
+|---|---|---|
+| order.cancel.delay.queue | 30 分钟 | 超时未支付自动取消 |
+| order.confirm.delay.queue | 7 天 | 发货后自动确认收货 |
+| after-sale.timeout.delay.queue | 3 天 | 商家售后超时自动通过 |
+| after-sale.return.timeout | 10 天 | 用户退货超时自动关闭 |
+
+注：延时队列通过 RabbitMQ 死信交换机（DLX）实现。消息先发送到带有 `x-message-ttl` 的延迟队列，TTL 到期后自动路由到实际处理队列。
+
+### 12.5 事件可靠性保证
+
+- 事件通过 `spring-cloud-stream` 或 `RabbitTemplate` 发送，确认模式为 `PUBLISH_CONFIRM`
+- 每个事件消息设置 `deliveryMode=PERSISTENT`
+- 消费端采用手动 ACK 模式
+- 失败重试：最多 3 次，超过则进入死信队列，由异常池兜底
+
+## 13. Redis 缓存策略
+
+### 13.1 缓存维度与失效时间
+
+| 缓存 Key 前缀 | 存储内容 | TTL | 更新时机 |
+|---|---|---|---|
+| `category:tree` | 类目树（JSON） | 600s | 后台类目变更后手动刷新 |
+| `product:detail:{id}` | 商品详情含 SKU | 300s | 商品审核通过、SKU 变更 |
+| `product:saleable:{id}` | 商品可售性状态 | 60s | 上下架、库存变化 |
+| `user:info:{id}` | 用户基本信息 | 1800s | 用户资料修改 |
+| `sku:stock:{id}` | SKU 可用库存 | 30s | 下单、取消订单释放 |
+| `token:access:{token}` | 用户登录会话 | 等于 Token TTL | 登录写入，退出/过期删除 |
+| `idempotent:lock:{key}` | 幂等 Key 处理锁 | 120s | 写入时设置，处理完成后延长 |
+| `rate:limit:{key}` | 接口限流计数器 | 滑动窗口 | 每次请求更新 |
+
+### 13.2 缓存模式
+
+- **读模式**：Cache-Aside，先查缓存，未命中再查 DB，回写缓存
+- **写模式**：更新 DB 后删除缓存（del），而非直接更新缓存，避免并发写导致数据不一致
+- **库存缓存**：下单时先校验 Redis 库存，再扣减 DB 库存，最终以 DB 为准。Redis 库存用于快速拦截超卖
+
+### 13.3 缓存穿透防护
+
+- 查询空值也缓存（TTL 较短，30s），防止频繁穿透
+- 商品详情等热点 Key 使用布隆过滤器（Bloom Filter）前置校验
+
+### 13.4 分布式锁
+
+- 下单锁定库存、幂等处理等场景使用 Redis 分布式锁
+- 锁 Key 规范：`lock:{bizType}:{bizId}`
+- 锁自动过期时间：10s，支持看门狗（Watch Dog）续期
+
+## 14. 文件上传 API
+
+### 14.1 获取上传凭证
+
+`GET /api/v1/upload/token`
+
+权限：USER / MERCHANT / PLATFORM_ADMIN。
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| bizType | string | 是 | PRODUCT_IMAGE / QUALIFICATION / EVIDENCE / AVATAR |
+| fileCount | integer | 否 | 预计上传文件数，默认 1，最大 10 |
+
+响应：
+```json
+{
+  "uploadToken": "upt-xxx",
+  "uploadUrl": "https://cdn.youxuan.com/upload",
+  "expiresIn": 3600,
+  "allowedExtensions": ["jpg","jpeg","png","pdf"],
+  "maxFileSize": 5242880
+}
+```
+
+### 14.2 文件上传
+
+`POST /api/v1/upload`
+
+权限：根据关联业务校验。
+
+请求：`multipart/form-data`
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| file | File | 是 | 上传文件 |
+| bizType | string | 是 | 业务类型 |
+| uploadToken | string | 是 | 上传凭证 |
+
+响应：
+```json
+{
+  "fileId": "file-xxx",
+  "fileUrl": "https://cdn.youxuan.com/images/2026/05/abc.jpg",
+  "fileSize": 102400,
+  "fileType": "image/jpeg"
+}
+```
+
+### 14.3 文件上传规范
+
+| 业务类型 | 格式限制 | 大小限制 | 说明 |
+|---|---|---|---|
+| PRODUCT_IMAGE | jpg, jpeg, png | 5MB | 商品主图/详情图 |
+| QUALIFICATION | jpg, jpeg, png, pdf | 10MB | 商家资质文件 |
+| EVIDENCE | jpg, jpeg, png | 5MB | 售后凭证 |
+| AVATAR | jpg, jpeg, png | 2MB | 用户/商家头像 |
+
+注意：所有上传文件必须经过内容安全校验（图片鉴黄/鉴政），不合规文件直接拒绝并记录风控日志。
+
+## 15. 定时任务
+
+### 15.1 定时任务列表
+
+| 任务名称 | 调度方式 | 执行频率 | 说明 |
+|---|---|---|---|
+| OrderAutoCancelTask | XXL-Job / @Scheduled | 每 5 分钟 | 查询超时 30 分钟未支付订单，自动取消并释放库存 |
+| OrderAutoConfirmTask | XXL-Job / @Scheduled | 每天凌晨 2:00 | 查询发货超 7 天未确认收货订单，自动确认完成 |
+| SettlementGenerateTask | XXL-Job / @Scheduled | 每天凌晨 3:00 | 按账期配置生成商家结算单 |
+| BillGenerateTask | XXL-Job / @Scheduled | 每天凌晨 1:00 | 生成前一日商家日账单 |
+| ReconciliationTask | XXL-Job / @Scheduled | 每天凌晨 4:00 | 自动发起前一日渠道对账 |
+| AfterSaleTimeoutTask | XXL-Job / @Scheduled | 每 10 分钟 | 商家售后处理超时 3 天自动通过；用户退货超时 10 天自动关闭 |
+| IdempotentCleanupTask | XXL-Job / @Scheduled | 每天凌晨 5:00 | 清理已过期的幂等记录 |
+
+### 15.2 关键任务执行逻辑
+
+**OrderAutoCancelTask：**
+```sql
+UPDATE orders SET order_status = 'CANCELED', updated_at = NOW()
+WHERE order_status = 'CREATED' AND pay_status = 'UNPAID'
+  AND created_at < DATE_SUB(NOW(), INTERVAL 30 MINUTE)
+  AND deleted_at IS NULL;
+```
+- 同时恢复 SKU 库存（locked_stock 扣减，available_stock 增加）
+- 写入 order_status_logs
+
+**SettlementGenerateTask：**
+- 按 merchant_id 分组，对已完成的日账单生成结算单
+- 结算周期：T+7（按平台配置）
+- 自动跳过已有结算单的日期范围
+- 生成成功后发送通知事件
+
+## 16. 依赖服务配置
+
+### 16.1 Nacos 配置中心
+
+| 配置项 | 默认值 | 说明 |
+|---|---|---|
+| spring.cloud.nacos.discovery.server-addr | 127.0.0.1:8848 | 注册中心地址 |
+| spring.cloud.nacos.discovery.namespace | public | 命名空间 |
+| spring.cloud.nacos.discovery.group | DEFAULT_GROUP | 分组 |
+| spring.cloud.nacos.config.server-addr | 127.0.0.1:8848 | 配置中心地址 |
+| spring.cloud.nacos.config.file-extension | yml | 配置文件格式 |
+
+### 16.2 Sentinel 限流配置
+
+| 接口 | QPS 阈值 | 隔离策略 | 降级处理 |
+|---|---|---|---|
+| `POST /api/v1/auth/mobile-login` | 10 | 线程池隔离 | 返回 RATE_LIMITED |
+| `POST /api/v1/payment-callbacks/**` | 50 | 信号量隔离 | 返回 429 |
+| `POST /api/v1/orders` | 100 | 信号量隔离 | 返回 RATE_LIMITED |
+| `POST /api/v1/after-sales` | 50 | 信号量隔离 | 返回 RATE_LIMITED |
+| `POST /api/v1/merchant/withdraw-orders` | 20 | 线程池隔离 | 返回 RATE_LIMITED |
+| `GET /api/v1/products/**` | 500 | 信号量隔离 | 返回兜底缓存数据 |
+| `GET /api/v1/categories/tree` | 1000 | 信号量隔离 | 返回兜底缓存数据 |
+
+### 16.3 分布式事务说明
+
+P0 采用最终一致性方案，不引入 Seata：
+
+| 场景 | 方案 | 说明 |
+|---|---|---|
+| 下单 + 锁定库存 | 本地事务 + Redis 库存预扣 + 消息补偿 | DB 扣库存失败时通过异常池补偿 |
+| 支付回调 + 更新订单 | 本地事务 + 幂等表 | 幂等防重放 + 异常池兜底 |
+| 退款 + 更新状态 | 本地事务 + 消息驱动 + 异常池 | 退款失败自动进入异常池 |
+| 结算单生成 | 定时任务 + 幂等 | 每天执行，支持失败重跑 |

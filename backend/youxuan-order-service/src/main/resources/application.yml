@@ -14,6 +14,11 @@ spring:
       transport:
         dashboard: ${SENTINEL_DASHBOARD:127.0.0.1:8858}
         port: ${SENTINEL_TRANSPORT_PORT:8722}
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:youxuan_p0}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:root}
   jackson:
     time-zone: Asia/Shanghai
     date-format: yyyy-MM-dd HH:mm:ss.SSS
@@ -43,3 +48,16 @@ youxuan:
   order:
     jobs:
       timeout-close-cron: ${ORDER_TIMEOUT_CLOSE_CRON:0 */1 * * * ?}
+  mq:
+    queue:
+      # 订单事件队列
+      order:
+        created: youxuan.order.created.queue
+        paid: youxuan.order.paid.queue
+        shipped: youxuan.order.shipped.queue
+        canceled: youxuan.order.canceled.queue
+      # 支付事件队列
+      payment:
+        created: youxuan.payment.created.queue
+        success: youxuan.payment.success.queue
+        failed: youxuan.payment.failed.queue

@@ -122,3 +122,43 @@ export type OperationLog = {
   result: string;
   createdAt: string;
 };
+
+// ── Auth Types ──
+
+export namespace Encrypt {
+  export type PublicKey = {
+    key: string;
+    algorithm: string;
+  };
+}
+
+export type AuthState = {
+  authenticated: boolean;
+  accessToken: string | null;
+  tokenType: string | null;
+  currentPrincipal: CurrentPrincipal | null;
+};
+
+export type CurrentPrincipal = {
+  principalId: string;
+  principalType: string;
+  userId: string;
+  merchantId: string | null;
+  account: string;
+  displayName: string;
+  roleCodeSet: string[];
+  permissionCodeSet: string[];
+};
+
+export type LoginRequest = {
+  account: string;
+  password: string;
+  principalType: string;
+};
+
+export type LoginResponse = {
+  accessToken: string;
+  tokenType: string;
+  expiresInSeconds: number;
+  currentPrincipal: CurrentPrincipal;
+};

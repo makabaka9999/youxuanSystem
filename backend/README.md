@@ -92,7 +92,7 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/v1/health" -Headers @{ "X-Requ
 前端配置位于 `frontend/.env.example`：
 
 ```text
-VITE_API_BASE_URL=http://localhost:8080/api/v1
+VITE_API_BASE_URL=/api/v1
 ```
 
 前端页面顶部会调用 `GET /api/v1/health` 显示后端连接状态。当前已完成网关健康接口联通验证。

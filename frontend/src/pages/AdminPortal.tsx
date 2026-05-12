@@ -31,6 +31,7 @@ type AdminPortalProps = {
   settlements: Settlement[];
   exceptions: ExceptionRecord[];
   operationLogs: OperationLog[];
+  onNavigate?: (target: string) => void;
 };
 
 /** 平台后台门户页面组件 */
@@ -42,22 +43,23 @@ export function AdminPortal({
   afterSales,
   settlements,
   exceptions,
-  operationLogs
+  operationLogs,
+  onNavigate
 }: AdminPortalProps) {
   return (
     <div className="portal-page admin-page">
       {/* Hero 区域：平台后台简介与风险概览看板 */}
-      <section className="hero admin-hero">
+      <section id="admin-dashboard" className="hero admin-hero">
         <div className="hero-copy">
           <span className="eyebrow">平台管理后台</span>
           <h1>审核、异常、财务和审计都能被平台看见</h1>
           <p>后台以队列和池子驱动，保障支付异常、退款失败、对账差异不会被静默吞掉。</p>
           <div className="hero-actions">
-            <button className="primary-button" type="button">
+            <button className="primary-button" type="button" onClick={() => onNavigate?.("settlement")}>
               <BadgeCheck size={16} />
               审核结算单
             </button>
-            <button className="danger-button" type="button">
+            <button className="danger-button" type="button" onClick={() => onNavigate?.("exceptions")}>
               <ShieldAlert size={16} />
               处理异常池
             </button>
@@ -87,7 +89,7 @@ export function AdminPortal({
 
       <section className="content-grid two-col">
         {/* 商家入驻审核队列 */}
-        <Card>
+        <Card id="admin-merchant-audit">
           <SectionHeader title="商家审核队列" description="来源：GET /api/v1/admin/merchant-applications" action="审核列表" />
           <Toolbar>
             <SearchInput placeholder="搜索商家 / 主体 / 联系人" />
@@ -107,7 +109,7 @@ export function AdminPortal({
         </Card>
 
         {/* 商品审核队列 */}
-        <Card>
+        <Card id="admin-product-audit">
           <SectionHeader title="商品审核队列" description="来源：GET /api/v1/admin/product-audits" action="商品审核" />
           <DataTable
             columns={["商品", "商家", "类目", "库存", "状态", "操作"]}
@@ -125,7 +127,7 @@ export function AdminPortal({
 
       <section className="content-grid two-col">
         {/* 异常处理池：展示各类待处理/处理中/已解决的异常记录 */}
-        <Card>
+        <Card id="admin-exceptions">
           <SectionHeader title="异常处理池" description="来源：GET /api/v1/admin/exception-orders" action="全部异常" />
           <div className="exception-list">
             {exceptions.map((item) => (
@@ -144,7 +146,7 @@ export function AdminPortal({
         </Card>
 
         {/* 结算与提现审核 */}
-        <Card>
+        <Card id="admin-settlement">
           <SectionHeader title="结算与提现审核" description="来源：GET /api/v1/admin/settlement-orders" action="财务审核" />
           <DataTable
             columns={["结算单", "商家", "周期", "应结金额", "状态", "操作"]}
@@ -162,7 +164,7 @@ export function AdminPortal({
 
       <section className="content-grid two-col">
         {/* 订单与售后监控：平台视角的订单列表和售后介入入口 */}
-        <Card>
+        <Card id="admin-monitoring">
           <SectionHeader title="订单与售后监控" description="来源：平台订单、售后介入接口" action="运营监控" />
           <DataTable
             columns={["业务单号", "对象", "金额", "状态", "入口"]}
@@ -188,7 +190,7 @@ export function AdminPortal({
         </Card>
 
         {/* 操作审计日志时间线 */}
-        <Card>
+        <Card id="admin-logs">
           <SectionHeader title="操作审计" description="来源：GET /api/v1/admin/operation-logs" action="日志查询" />
           <div className="audit-list">
             {operationLogs.map((log) => (
@@ -206,7 +208,7 @@ export function AdminPortal({
       </section>
 
       {/* 后台核心队列能力概览 */}
-      <Card className="flow-panel">
+      <Card id="admin-settings" className="flow-panel">
         <SectionHeader title="后台核心队列" description="所有高风险动作记录操作人、IP、前后状态和 requestId" />
         <div className="capability-grid admin-capability">
           {[

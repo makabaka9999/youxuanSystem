@@ -9,7 +9,7 @@ import type { AfterSale, CartItem, ExceptionRecord, Merchant, Metric, OperationL
 import { afterSaleStatusMap, orderStatusMap } from "../domain";
 
 // 后端 API 基础路径
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8081/api/v1";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
 
 /** 从 localStorage 获取 JWT Token */
 function getToken(): string | null {
@@ -37,14 +37,18 @@ function headers(): Record<string, string> {
  * 安全的 JSON 请求：调用后端接口，失败时返回 null 而非抛异常。
  */
 async function safeFetch<T>(url: string): Promise<T | null> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 2500);
   try {
-    const resp = await fetch(url, { headers: headers() });
+    const resp = await fetch(url, { headers: headers(), signal: controller.signal });
     if (!resp.ok) return null;
     const body = await resp.json();
     if (body.code !== "SUCCESS") return null;
     return body.data as T;
   } catch {
     return null;
+  } finally {
+    window.clearTimeout(timeout);
   }
 }
 

@@ -6,7 +6,7 @@
  */
 
 // 后端 API 基础路径，优先使用环境变量配置
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8081/api/v1";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
 
 /** 后端健康检查响应类型 */
 export type BackendHealth = {

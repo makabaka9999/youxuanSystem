@@ -5,7 +5,7 @@
  * - 侧边栏导航与页面路由
  * - 后端健康状态检测
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   BadgeCheck,
   Banknote,
@@ -114,6 +114,41 @@ const portalMeta = {
   }
 };
 
+const featureTargets: Record<Portal, Record<string, string>> = {
+  user: {
+    home: "user-home",
+    products: "user-products",
+    cart: "user-cart",
+    orders: "user-orders",
+    "after-sales": "user-after-sales",
+    profile: "user-profile"
+  },
+  merchant: {
+    dashboard: "merchant-dashboard",
+    store: "merchant-store",
+    products: "merchant-products",
+    orders: "merchant-orders",
+    "after-sales": "merchant-after-sales",
+    finance: "merchant-finance",
+    staffs: "merchant-staffs"
+  },
+  admin: {
+    dashboard: "admin-dashboard",
+    "merchant-audit": "admin-merchant-audit",
+    "product-audit": "admin-product-audit",
+    exceptions: "admin-exceptions",
+    settlement: "admin-settlement",
+    logs: "admin-logs",
+    settings: "admin-settings"
+  }
+};
+
+function scrollToFeature(targetId: string) {
+  window.requestAnimationFrame(() => {
+    document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
 /** 应用根组件 */
 export function App() {
   // 认证状态：从 localStorage 恢复或为 null（未登录）
@@ -156,19 +191,27 @@ export function App() {
   /** 切换门户端（用户端/商家端/平台后台），重置导航到首页 */
   const switchPortal = useCallback((p: Portal) => {
     setPortal(p);
-    setActiveNav(portalMeta[p].nav[0].id);
+    const firstNavId = portalMeta[p].nav[0].id;
+    setActiveNav(firstNavId);
+    scrollToFeature(featureTargets[p][firstNavId]);
   }, []);
 
+  const navigateToFeature = useCallback((itemId: string) => {
+    setActiveNav(itemId);
+    setSidebarOpen(false);
+    scrollToFeature(featureTargets[portal][itemId] ?? featureTargets[portal][portalMeta[portal].nav[0].id]);
+  }, [portal]);
+
   // 未登录时显示登录页面
+  const active = portalMeta[portal];
+  const nav = active.nav;
+
   if (!auth) {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
   }
 
   // 正在加载数据时显示 loading 骨架屏
   if (!data) return <LoadingScreen />;
-
-  const active = portalMeta[portal];
-  const nav = useMemo(() => active.nav, [active.nav]);
 
   return (
     <>
@@ -217,7 +260,7 @@ export function App() {
                   className={item.id === activeNav ? "active" : ""}
                   key={item.id}
                   type="button"
-                  onClick={() => { setActiveNav(item.id); setSidebarOpen(false); }}
+                  onClick={() => navigateToFeature(item.id)}
                 >
                   <Icon size={18} />
                   {item.label}
@@ -275,6 +318,7 @@ export function App() {
               cartItems={data.user.cartItems}
               orders={data.user.orders}
               afterSales={data.user.afterSales}
+              onNavigate={navigateToFeature}
             />
           ) : null}
 
@@ -285,6 +329,7 @@ export function App() {
               orders={data.merchant.orders}
               afterSales={data.merchant.afterSales}
               settlements={data.merchant.settlements}
+              onNavigate={navigateToFeature}
             />
           ) : null}
 
@@ -298,6 +343,7 @@ export function App() {
               settlements={data.admin.settlements}
               exceptions={data.admin.exceptions}
               operationLogs={data.admin.operationLogs}
+              onNavigate={navigateToFeature}
             />
           ) : null}
         </main>

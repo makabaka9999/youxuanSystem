@@ -59,7 +59,7 @@ youxuan:
 # Dubbo RPC 配置
 dubbo:
   application:
-    name: ${spring.application.name}
+    name: ${spring.application.name}-rpc
     qos-port: ${DUBBO_QOS_PORT:22225}
   registry:
     address: nacos://${NACOS_SERVER_ADDR:127.0.0.1:8848}

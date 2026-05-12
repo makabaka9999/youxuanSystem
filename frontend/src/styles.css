@@ -847,6 +847,12 @@ img {
   transition: box-shadow var(--transition-base);
 }
 
+.hero[id],
+.panel[id],
+.merchant-summary[id] {
+  scroll-margin-top: 24px;
+}
+
 .panel:hover {
   box-shadow: var(--shadow-md);
 }

@@ -20,31 +20,32 @@ type MerchantPortalProps = {
   orders: Order[];
   afterSales: AfterSale[];
   settlements: Settlement[];
+  onNavigate?: (target: string) => void;
 };
 
 /** 商家端门户页面组件 */
-export function MerchantPortal({ metrics, products, orders, afterSales, settlements }: MerchantPortalProps) {
+export function MerchantPortal({ metrics, products, orders, afterSales, settlements, onNavigate }: MerchantPortalProps) {
   return (
     <div className="portal-page merchant-page">
       {/* Hero 区域：商家端简介与经营概要 */}
-      <section className="hero merchant-hero">
+      <section id="merchant-dashboard" className="hero merchant-hero">
         <div className="hero-copy">
           <span className="eyebrow">商家端 Web</span>
           <h1>商品、履约、售后、资金都围绕店铺工作台展开</h1>
           <p>冻结状态下仍保留已支付订单履约能力，财务动作和员工权限独立管控。</p>
           <div className="hero-actions">
-            <button className="primary-button" type="button">
+            <button className="primary-button" type="button" onClick={() => onNavigate?.("products")}>
               <Boxes size={16} />
               发布商品
             </button>
-            <button className="secondary-button" type="button">
+            <button className="secondary-button" type="button" onClick={() => onNavigate?.("orders")}>
               <Truck size={16} />
               处理发货
             </button>
           </div>
         </div>
         {/* 商家经营概要卡片 */}
-        <div className="merchant-summary">
+        <div id="merchant-store" className="merchant-summary">
           <div>
             <span>店铺状态</span>
             <strong>正常经营</strong>
@@ -64,7 +65,7 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
 
       <section className="content-grid two-col">
         {/* 商品管理：搜索、筛选、表格展示 */}
-        <Card>
+        <Card id="merchant-products">
           <SectionHeader title="商品管理" description="来源：GET /api/v1/merchant/products" action="商品列表" />
           <Toolbar>
             <SearchInput placeholder="搜索商品名称 / 类目" />
@@ -85,7 +86,7 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
         </Card>
 
         {/* 订单履约：商家发货操作 */}
-        <Card>
+        <Card id="merchant-orders">
           <SectionHeader title="订单履约" description="来源：GET /api/v1/merchant/orders" action="订单管理" />
           <DataTable
             columns={["订单号", "买家", "金额", "状态", "动作"]}
@@ -102,7 +103,7 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
 
       <section className="content-grid two-col">
         {/* 售后处理任务卡片列表 */}
-        <Card>
+        <Card id="merchant-after-sales">
           <SectionHeader title="售后处理" description="来源：GET /api/v1/merchant/after-sales" action="售后列表" />
           <div className="task-list">
             {afterSales.map((item) => (
@@ -122,7 +123,7 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
         </Card>
 
         {/* 账单与结算提现 */}
-        <Card>
+        <Card id="merchant-finance">
           <SectionHeader title="账单与提现" description="来源：GET /api/v1/merchant/settlements" action="财务中心" />
           <DataTable
             columns={["结算单", "周期", "应结金额", "状态", "操作"]}
@@ -138,7 +139,7 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
       </section>
 
       {/* 商家端能力组件概览 */}
-      <Card className="flow-panel">
+      <Card id="merchant-staffs" className="flow-panel">
         <SectionHeader title="商家端组件能力" description="老板账号全量，员工账号按菜单权限控制" />
         <div className="capability-grid">
           {[

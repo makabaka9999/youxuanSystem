@@ -2,11 +2,11 @@ package com.youxuan.gateway.controller;
 
 import com.youxuan.common.api.ApiResponse;
 import com.youxuan.common.constant.ApiConstants;
-import com.youxuan.common.web.RequestContext;
 import com.youxuan.gateway.dto.ServiceDirectoryDTO;
 import com.youxuan.gateway.service.ServiceDirectoryService;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 服务目录控制器
  * <p>
  * 提供平台所有微服务的目录列表，方便前端和开发者了解各服务的访问路径和职责范围。
+ * 基于 WebFlux 响应式栈运行（Spring Cloud Gateway 环境）。
  * </p>
  */
 @RestController
@@ -35,10 +36,12 @@ public class ServiceDirectoryController {
     /**
      * 获取所有服务的目录列表
      *
+     * @param requestId 请求追踪 ID（从请求头中获取）
      * @return 服务目录列表（包含服务编码、名称、路径、职责描述）
      */
     @GetMapping("/services")
-    public ApiResponse<List<ServiceDirectoryDTO>> listServices() {
-        return ApiResponse.success(serviceDirectoryService.listServices(), RequestContext.getRequestId());
+    public ApiResponse<List<ServiceDirectoryDTO>> listServices(
+            @RequestHeader(value = ApiConstants.REQUEST_ID_HEADER, required = false) String requestId) {
+        return ApiResponse.success(serviceDirectoryService.listServices(), requestId);
     }
 }

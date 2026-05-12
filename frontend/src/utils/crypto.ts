@@ -60,7 +60,7 @@ export async function rsaEncrypt(plainText: string, publicKeyBase64: string): Pr
  * @returns 包含公钥字符串和算法名称的对象
  */
 export async function fetchPublicKey(): Promise<Encrypt.PublicKey> {
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8081/api/v1";
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
   const response = await fetch(`${API_BASE_URL}/auth/public-key`, {
     headers: { "X-Request-Id": crypto.randomUUID() },
   });

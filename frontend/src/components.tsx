@@ -73,8 +73,8 @@ export function SectionHeader({
 
 /* ── Card ── */
 /** 通用面板容器：带圆角和背景的区块包裹器 */
-export function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <section className={`panel ${className}`}>{children}</section>;
+export function Card({ children, className = "", id }: { children: React.ReactNode; className?: string; id?: string }) {
+  return <section id={id} className={`panel ${className}`}>{children}</section>;
 }
 
 /* ── Toolbar ── */

@@ -7,7 +7,7 @@
 import type { LoginRequest, LoginResponse } from "../types";
 
 // 后端 API 基础路径，优先使用环境变量配置
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8081/api/v1";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
 
 /** 密码登录接口：提交账号（RSA 加密后的密码）和登录端类型，返回 JWT 令牌和主体信息 */
 export async function login(request: LoginRequest): Promise<LoginResponse> {

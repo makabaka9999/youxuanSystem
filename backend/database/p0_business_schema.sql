@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS merchant_staffs (
   role_type VARCHAR(32) NOT NULL,
   menu_permissions TEXT NULL,
   status VARCHAR(32) NOT NULL DEFAULT 'ENABLED',
+  last_login_at DATETIME(3) NULL DEFAULT NULL COMMENT '最后登录时间',
   remark VARCHAR(512) NULL,
   deleted_at DATETIME(3) NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),

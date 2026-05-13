@@ -5,13 +5,17 @@ import com.youxuan.auth.domain.PrincipalTypeEnum;
 import com.youxuan.auth.dto.CurrentPrincipalDTO;
 import com.youxuan.auth.dto.LoginCommand;
 import com.youxuan.auth.dto.LoginResultDTO;
+import com.youxuan.auth.dto.RegisterCommand;
 import com.youxuan.auth.model.AuthAccountDO;
 import com.youxuan.auth.repository.AuthAccountRepository;
+import com.youxuan.common.api.ApiResponse;
 import com.youxuan.common.api.ErrorCode;
 import com.youxuan.common.exception.BizException;
+import com.youxuan.common.id.IdGenerator;
 import java.util.Locale;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 认证应用服务（Application Service）。
@@ -44,6 +48,12 @@ public class AuthApplicationService {
     /** RSA 密钥服务，用于解密前端加密的密码 */
     private final RsaKeyService rsaKeyService;
 
+    /** ID 生成器 */
+    private final IdGenerator idGenerator;
+
+    /** USER 角色在 roles 表中的 ID（来自 V2 种子数据） */
+    private static final Long USER_ROLE_ID = 1001L;
+
     /**
      * 构造认证应用服务。
      *
@@ -57,12 +67,14 @@ public class AuthApplicationService {
                                   PasswordEncoder passwordEncoder,
                                   JwtTokenService jwtTokenService,
                                   AuthSecurityProperties authSecurityProperties,
-                                  RsaKeyService rsaKeyService) {
+                                  RsaKeyService rsaKeyService,
+                                  IdGenerator idGenerator) {
         this.authAccountRepository = authAccountRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenService = jwtTokenService;
         this.authSecurityProperties = authSecurityProperties;
         this.rsaKeyService = rsaKeyService;
+        this.idGenerator = idGenerator;
     }
 
     /**
@@ -105,6 +117,33 @@ public class AuthApplicationService {
         loginResultDTO.setExpiresInSeconds(authSecurityProperties.getAccessTokenTtlMinutes() * 60L);
         loginResultDTO.setCurrentPrincipal(toCurrentPrincipalDTO(authAccountDO));
         return loginResultDTO;
+    }
+
+    /**
+     * 用户注册。
+     * <p>
+     * 使用手机号注册新用户，密码经过 RSA 解密后进行 BCrypt 哈希存储，
+     * 同时创建默认的 USER 角色关联。
+     * </p>
+     *
+     * @param registerCommand 注册命令，包含手机号、密码和昵称
+     */
+    @Transactional
+    public void register(RegisterCommand registerCommand) {
+        String mobile = registerCommand.getMobile();
+        // 1. 检查手机号是否已注册
+        if (authAccountRepository.existsByMobile(mobile)) {
+            throw new BizException(ErrorCode.STATE_CONFLICT, "该手机号已注册");
+        }
+        // 2. RSA 解密密码
+        String decryptedPassword = rsaKeyService.decrypt(registerCommand.getPassword());
+        // 3. BCrypt 哈希
+        String passwordHash = passwordEncoder.encode(decryptedPassword);
+        // 4. 插入用户
+        Long userId = idGenerator.nextId();
+        authAccountRepository.insertUser(userId, mobile, passwordHash, registerCommand.getNickname());
+        // 5. 插入角色关联（USER 角色）
+        authAccountRepository.insertUserRole(idGenerator.nextId(), "USER", userId, USER_ROLE_ID);
     }
 
     /**

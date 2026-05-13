@@ -33,16 +33,6 @@ import { MerchantPortal } from "./pages/MerchantPortal";
 import { UserPortal } from "./pages/UserPortal";
 import type { AuthState, NavItem, Portal } from "./types";
 
-/** 应用全局数据：三个门户的首页数据聚合 */
-type AppData = {
-  /** 用户端数据 */
-  user: Awaited<ReturnType<typeof api.getUserHome>>;
-  /** 商家端数据 */
-  merchant: Awaited<ReturnType<typeof api.getMerchantHome>>;
-  /** 平台后台数据 */
-  admin: Awaited<ReturnType<typeof api.getAdminHome>>;
-};
-
 // localStorage 中存储认证信息的键名
 const STORAGE_KEY = "youxuan_auth";
 
@@ -153,47 +143,42 @@ function scrollToFeature(targetId: string) {
 export function App() {
   // 认证状态：从 localStorage 恢复或为 null（未登录）
   const [auth, setAuth] = useState<AuthState | null>(loadAuth);
-  // 当前门户端：用户端 / 商家端 / 平台后台
-  const [portal, setPortal] = useState<Portal>(auth ? portalFromAuth(auth) : "admin");
-  // 当前选中的导航项 ID
-  const [activeNav, setActiveNav] = useState<string>("home");
-  // 三个门户的首页聚合数据
-  const [data, setData] = useState<AppData | null>(null);
+  // 根据认证信息决定当前门户端（不可手动切换）
+  const portal: Portal = auth ? portalFromAuth(auth) : "admin";
+  // 当前选中的导航项 ID（根据门户类型取第一个导航项）
+  const [activeNav, setActiveNav] = useState<string>(
+    portalMeta[auth ? portalFromAuth(auth) : "admin"].nav[0].id
+  );
+  // 当前门户的首页数据
+  const [pageData, setPageData] = useState<any>(null);
   // 移动端侧边栏展开状态
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // 后端服务健康检查状态
   const [backendHealth, setBackendHealth] = useState<BackendHealth>({ connected: false, status: "CHECKING" });
 
-  /** 认证后加载三个门户的首页数据，同时检测后端健康状态 */
+  /** 认证后加载对应门户的数据，同时检测后端健康状态 */
   useEffect(() => {
     if (!auth) return;
-    Promise.all([api.getUserHome(), api.getMerchantHome(), api.getAdminHome()]).then(([user, merchant, admin]) => {
-      setData({ user, merchant, admin });
-    });
+    const loaders: Record<Portal, () => Promise<any>> = {
+      user: api.getUserHome,
+      merchant: api.getMerchantHome,
+      admin: api.getAdminHome,
+    };
+    loaders[portal]().then(setPageData);
     fetchBackendHealth().then(setBackendHealth);
-  }, [auth]);
+  }, [auth, portal]);
 
   /** 登录成功回调：保存认证信息并跳转到对应门户 */
   const handleLoginSuccess = useCallback((newAuth: AuthState) => {
     setAuth(newAuth);
-    const p = portalFromAuth(newAuth);
-    setPortal(p);
-    setActiveNav(portalMeta[p].nav[0].id);
+    setActiveNav(portalMeta[portalFromAuth(newAuth)].nav[0].id);
   }, []);
 
   /** 登出处理：清除 localStorage 中的认证信息并重置状态 */
   const handleLogout = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
     setAuth(null);
-    setData(null);
-  }, []);
-
-  /** 切换门户端（用户端/商家端/平台后台），重置导航到首页 */
-  const switchPortal = useCallback((p: Portal) => {
-    setPortal(p);
-    const firstNavId = portalMeta[p].nav[0].id;
-    setActiveNav(firstNavId);
-    scrollToFeature(featureTargets[p][firstNavId]);
+    setPageData(null);
   }, []);
 
   const navigateToFeature = useCallback((itemId: string) => {
@@ -211,7 +196,7 @@ export function App() {
   }
 
   // 正在加载数据时显示 loading 骨架屏
-  if (!data) return <LoadingScreen />;
+  if (!pageData) return <LoadingScreen />;
 
   return (
     <>
@@ -226,7 +211,7 @@ export function App() {
       </button>
 
       <div className="app-shell">
-        {/* 左侧边栏：品牌标识、门户切换器、导航菜单、用户信息 */}
+        {/* 左侧边栏：品牌标识、当前门户导航菜单、用户信息 */}
         <aside className={`sidebar ${sidebarOpen ? "sidebar-open" : ""}`}>
           <div className="brand">
             <div className="brand-mark">优</div>
@@ -234,21 +219,6 @@ export function App() {
               <strong>优选</strong>
               <span>多商户电商平台</span>
             </div>
-          </div>
-
-          {/* 门户切换标签组 */}
-          <div className="portal-switcher" role="tablist" aria-label="切换端">
-            {(["user", "merchant", "admin"] as Portal[]).map((item) => (
-              <button
-                className={portal === item ? "active" : ""}
-                key={item}
-                type="button"
-                onClick={() => { switchPortal(item); setSidebarOpen(false); }}
-              >
-                {portalMeta[item].title}
-                <span style={{ marginLeft: 'auto', fontSize: 11, opacity: 0.4 }}>{portalMeta[item].role.slice(0, 4)}</span>
-              </button>
-            ))}
           </div>
 
           {/* 侧边栏主导航菜单 */}
@@ -313,36 +283,36 @@ export function App() {
           {/* 根据当前门户端渲染对应的页面组件 */}
           {portal === "user" ? (
             <UserPortal
-              metrics={data.user.metrics}
-              products={data.user.products}
-              cartItems={data.user.cartItems}
-              orders={data.user.orders}
-              afterSales={data.user.afterSales}
+              metrics={pageData.metrics}
+              products={pageData.products}
+              cartItems={pageData.cartItems}
+              orders={pageData.orders}
+              afterSales={pageData.afterSales}
               onNavigate={navigateToFeature}
             />
           ) : null}
 
           {portal === "merchant" ? (
             <MerchantPortal
-              metrics={data.merchant.metrics}
-              products={data.merchant.products}
-              orders={data.merchant.orders}
-              afterSales={data.merchant.afterSales}
-              settlements={data.merchant.settlements}
+              metrics={pageData.metrics}
+              products={pageData.products}
+              orders={pageData.orders}
+              afterSales={pageData.afterSales}
+              settlements={pageData.settlements}
               onNavigate={navigateToFeature}
             />
           ) : null}
 
           {portal === "admin" ? (
             <AdminPortal
-              metrics={data.admin.metrics}
-              merchants={data.admin.merchants}
-              products={data.admin.products}
-              orders={data.admin.orders}
-              afterSales={data.admin.afterSales}
-              settlements={data.admin.settlements}
-              exceptions={data.admin.exceptions}
-              operationLogs={data.admin.operationLogs}
+              metrics={pageData.metrics}
+              merchants={pageData.merchants}
+              products={pageData.products}
+              orders={pageData.orders}
+              afterSales={pageData.afterSales}
+              settlements={pageData.settlements}
+              exceptions={pageData.exceptions}
+              operationLogs={pageData.operationLogs}
               onNavigate={navigateToFeature}
             />
           ) : null}

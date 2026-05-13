@@ -2,6 +2,7 @@ package com.youxuan.auth.controller;
 
 import com.youxuan.auth.dto.LoginCommand;
 import com.youxuan.auth.dto.LoginResultDTO;
+import com.youxuan.auth.dto.RegisterCommand;
 import com.youxuan.auth.service.AuthApplicationService;
 import com.youxuan.auth.service.RsaKeyService;
 import com.youxuan.common.api.ApiResponse;
@@ -74,5 +75,21 @@ public class AuthController {
     @PostMapping("/password-login")
     public ApiResponse<LoginResultDTO> passwordLogin(@Valid @RequestBody LoginCommand loginCommand) {
         return ApiResponse.success(authApplicationService.login(loginCommand), RequestContext.getRequestId());
+    }
+
+    /**
+     * 用户注册接口。
+     * <p>
+     * 使用手机号注册新用户，密码经过 RSA 加密传输，
+     * 注册成功自动分配 USER 角色，不返回令牌（需登录）。
+     * </p>
+     *
+     * @param registerCommand 注册信息，包含手机号、密码和昵称
+     * @return 注册结果
+     */
+    @PostMapping("/register")
+    public ApiResponse<Void> register(@Valid @RequestBody RegisterCommand registerCommand) {
+        authApplicationService.register(registerCommand);
+        return ApiResponse.success(null, RequestContext.getRequestId());
     }
 }

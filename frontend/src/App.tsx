@@ -59,6 +59,17 @@ function portalFromAuth(auth: AuthState): Portal {
   return "admin";
 }
 
+/** 根据商家员工角色类型过滤导航项 */
+function filterMerchantNav(roleType: string | undefined) {
+  const allNav = portalMeta.merchant.nav;
+  if (roleType === "ADMIN") return allNav;
+  if (roleType === "CUSTOMER_SERVICE") {
+    return allNav.filter(n => ["dashboard", "after-sales"].includes(n.id));
+  }
+  // OPERATOR 及默认：工作台、商品、订单、售后
+  return allNav.filter(n => ["dashboard", "products", "orders", "after-sales"].includes(n.id));
+}
+
 /** 三端门户元数据配置：标题、副标题、角色及侧边栏导航项列表 */
 const portalMeta = {
   user: {
@@ -187,13 +198,15 @@ export function App() {
     scrollToFeature(featureTargets[portal][itemId] ?? featureTargets[portal][portalMeta[portal].nav[0].id]);
   }, [portal]);
 
-  // 未登录时显示登录页面
-  const active = portalMeta[portal];
-  const nav = active.nav;
-
   if (!auth) {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
   }
+
+  // 根据角色过滤导航
+  const active = portalMeta[portal];
+  const nav = portal === "merchant"
+    ? filterMerchantNav(auth.currentPrincipal?.roleType)
+    : active.nav;
 
   // 正在加载数据时显示 loading 骨架屏
   if (!pageData) return <LoadingScreen />;
@@ -300,6 +313,7 @@ export function App() {
               afterSales={pageData.afterSales}
               settlements={pageData.settlements}
               onNavigate={navigateToFeature}
+              visibleSections={nav.map(n => n.id)}
             />
           ) : null}
 

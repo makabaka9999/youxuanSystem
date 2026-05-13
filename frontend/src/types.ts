@@ -265,7 +265,7 @@ export type AuthState = {
 export type CurrentPrincipal = {
   /** 主体 ID */
   principalId: string;
-  /** 主体类型（USER / MERCHANT_OWNER / PLATFORM_ADMIN） */
+  /** 主体类型（USER / MERCHANT_STAFF / PLATFORM_ADMIN） */
   principalType: string;
   /** 用户 ID */
   userId: string;
@@ -275,6 +275,8 @@ export type CurrentPrincipal = {
   account: string;
   /** 显示名称 */
   displayName: string;
+  /** 商家员工角色类型（ADMIN / OPERATOR / CUSTOMER_SERVICE） */
+  roleType?: string;
   /** 角色编码集合 */
   roleCodeSet: string[];
   /** 权限编码集合 */

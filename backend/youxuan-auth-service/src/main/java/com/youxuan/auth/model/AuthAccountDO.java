@@ -38,6 +38,9 @@ public class AuthAccountDO {
     /** 账号状态（ENABLED / DISABLED 等） */
     private String status;
 
+    /** 商家员工角色类型（ADMIN / OPERATOR / CUSTOMER_SERVICE，仅 MERCHANT_STAFF 有效） */
+    private String roleType;
+
     /** 角色编码集合 */
     private Set<String> roleCodeSet = new HashSet<>();
 
@@ -186,6 +189,24 @@ public class AuthAccountDO {
      */
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    /**
+     * 获取商家员工角色类型。
+     *
+     * @return 角色类型（ADMIN / OPERATOR / CUSTOMER_SERVICE）
+     */
+    public String getRoleType() {
+        return roleType;
+    }
+
+    /**
+     * 设置商家员工角色类型。
+     *
+     * @param roleType 角色类型
+     */
+    public void setRoleType(String roleType) {
+        this.roleType = roleType;
     }
 
     /**

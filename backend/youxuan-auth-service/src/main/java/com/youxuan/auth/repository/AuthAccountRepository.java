@@ -80,7 +80,7 @@ public class AuthAccountRepository {
     private Optional<AuthAccountDO> findMerchantStaff(String mobile) {
         List<AuthAccountDO> accountList = jdbcTemplate.query(
                 "SELECT u.id AS user_id, u.mobile, u.password_hash, " +
-                "ms.id AS staff_id, ms.merchant_id, ms.staff_name, ms.status " +
+                "ms.id AS staff_id, ms.merchant_id, ms.staff_name, ms.status, ms.role_type " +
                 "FROM users u JOIN merchant_staffs ms ON ms.user_id = u.id AND ms.deleted_at IS NULL " +
                 "WHERE u.mobile = ? AND u.deleted_at IS NULL",
                 (resultSet, rowNum) -> mapMerchantStaff(resultSet),
@@ -212,6 +212,7 @@ public class AuthAccountRepository {
         authAccountDO.setPasswordHash(resultSet.getString("password_hash"));
         authAccountDO.setDisplayName(resultSet.getString("staff_name"));
         authAccountDO.setStatus(resultSet.getString("status"));
+        authAccountDO.setRoleType(resultSet.getString("role_type"));
         return authAccountDO;
     }
 

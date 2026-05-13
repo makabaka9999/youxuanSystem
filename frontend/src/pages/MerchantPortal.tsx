@@ -37,10 +37,12 @@ type MerchantPortalProps = {
   afterSales: AfterSale[];
   settlements: Settlement[];
   onNavigate?: (target: string) => void;
+  /** 可见功能区域 ID 列表，来自角色权限控制 */
+  visibleSections?: string[];
 };
 
 /** 商家端门户页面组件 */
-export function MerchantPortal({ metrics, products, orders, afterSales, settlements, onNavigate }: MerchantPortalProps) {
+export function MerchantPortal({ metrics, products, orders, afterSales, settlements, onNavigate, visibleSections }: MerchantPortalProps) {
   // ── 员工管理状态 ──
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [staffLoading, setStaffLoading] = useState(false);
@@ -183,6 +185,11 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
     }
   }, [loadStaff]);
 
+  /** 判断区域是否可见 */
+  const canShow = useCallback((section: string) => {
+    return !visibleSections || visibleSections.includes(section);
+  }, [visibleSections]);
+
   /** 角色类型中文名 */
   const roleTypeLabel: Record<string, string> = {
     ADMIN: "管理员",
@@ -235,83 +242,89 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
 
       <MetricGrid metrics={metrics} />
 
-      <section className="content-grid two-col">
-        {/* 商品管理：搜索、筛选、表格展示 */}
-        <Card id="merchant-products">
-          <SectionHeader title="商品管理" description="来源：GET /api/v1/merchant/products" action="商品列表" />
-          <Toolbar>
-            <SearchInput placeholder="搜索商品名称 / 类目" />
-            <button className="secondary-button compact" type="button">上架状态</button>
-            <button className="secondary-button compact" type="button">审核状态</button>
-          </Toolbar>
-          <DataTable
-            columns={["商品", "类目", "库存", "销量", "状态", "操作"]}
-            rows={products.map((product) => [
-              <div className="table-product"><img src={product.image} alt="" /><span>{product.name}</span></div>,
-              product.category,
-              product.stock,
-              product.sales,
-              <StatusTag {...productStatusMap[product.status]} />,
-              <button className="link-button">{product.status === "AUDITING" ? "查看审核" : "编辑"}</button>
-            ])}
-          />
-        </Card>
+      {canShow("products") || canShow("orders") ? (
+        <section className="content-grid two-col">
+          {canShow("products") && (
+            <Card id="merchant-products">
+              <SectionHeader title="商品管理" description="来源：GET /api/v1/merchant/products" action="商品列表" />
+              <Toolbar>
+                <SearchInput placeholder="搜索商品名称 / 类目" />
+                <button className="secondary-button compact" type="button">上架状态</button>
+                <button className="secondary-button compact" type="button">审核状态</button>
+              </Toolbar>
+              <DataTable
+                columns={["商品", "类目", "库存", "销量", "状态", "操作"]}
+                rows={products.map((product) => [
+                  <div className="table-product"><img src={product.image} alt="" /><span>{product.name}</span></div>,
+                  product.category,
+                  product.stock,
+                  product.sales,
+                  <StatusTag {...productStatusMap[product.status]} />,
+                  <button className="link-button">{product.status === "AUDITING" ? "查看审核" : "编辑"}</button>
+                ])}
+              />
+            </Card>
+          )}
+          {canShow("orders") && (
+            <Card id="merchant-orders">
+              <SectionHeader title="订单履约" description="来源：GET /api/v1/merchant/orders" action="订单管理" />
+              <DataTable
+                columns={["订单号", "买家", "金额", "状态", "动作"]}
+                rows={orders.map((order) => [
+                  <span className="mono">{order.orderNo}</span>,
+                  order.userName,
+                  <AmountText value={order.amount} />,
+                  <StatusTag {...orderStatusMap[order.status]} />,
+                  <MerchantOrderAction status={order.status} />
+                ])}
+              />
+            </Card>
+          )}
+        </section>
+      ) : null}
 
-        {/* 订单履约：商家发货操作 */}
-        <Card id="merchant-orders">
-          <SectionHeader title="订单履约" description="来源：GET /api/v1/merchant/orders" action="订单管理" />
-          <DataTable
-            columns={["订单号", "买家", "金额", "状态", "动作"]}
-            rows={orders.map((order) => [
-              <span className="mono">{order.orderNo}</span>,
-              order.userName,
-              <AmountText value={order.amount} />,
-              <StatusTag {...orderStatusMap[order.status]} />,
-              <MerchantOrderAction status={order.status} />
-            ])}
-          />
-        </Card>
-      </section>
-
-      <section className="content-grid two-col">
-        {/* 售后处理任务卡片列表 */}
-        <Card id="merchant-after-sales">
-          <SectionHeader title="售后处理" description="来源：GET /api/v1/merchant/after-sales" action="售后列表" />
-          <div className="task-list">
-            {afterSales.map((item) => (
-              <article className="task-card" key={item.id}>
-                <div>
-                  <strong>{item.afterSaleNo}</strong>
-                  <p>{item.reason}</p>
-                  <small>截止 {item.deadline}</small>
-                </div>
-                <div className="task-actions">
-                  <StatusTag {...afterSaleStatusMap[item.status]} />
-                  <button className="link-button">处理</button>
-                </div>
-              </article>
-            ))}
-          </div>
-        </Card>
-
-        {/* 账单与结算提现 */}
-        <Card id="merchant-finance">
-          <SectionHeader title="账单与提现" description="来源：GET /api/v1/merchant/settlements" action="财务中心" />
-          <DataTable
-            columns={["结算单", "周期", "应结金额", "状态", "操作"]}
-            rows={settlements.map((settlement) => [
-              <span className="mono">{settlement.settlementNo}</span>,
-              settlement.period,
-              <AmountText value={settlement.payableAmount} />,
-              <StatusTag {...settlementStatusMap[settlement.status]} />,
-              <button className="link-button">{settlement.status === "APPROVED" ? "申请提现" : "查看"}</button>
-            ])}
-          />
-        </Card>
-      </section>
+      {canShow("after-sales") || canShow("finance") ? (
+        <section className="content-grid two-col">
+          {canShow("after-sales") && (
+            <Card id="merchant-after-sales">
+              <SectionHeader title="售后处理" description="来源：GET /api/v1/merchant/after-sales" action="售后列表" />
+              <div className="task-list">
+                {afterSales.map((item) => (
+                  <article className="task-card" key={item.id}>
+                    <div>
+                      <strong>{item.afterSaleNo}</strong>
+                      <p>{item.reason}</p>
+                      <small>截止 {item.deadline}</small>
+                    </div>
+                    <div className="task-actions">
+                      <StatusTag {...afterSaleStatusMap[item.status]} />
+                      <button className="link-button">处理</button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </Card>
+          )}
+          {canShow("finance") && (
+            <Card id="merchant-finance">
+              <SectionHeader title="账单与提现" description="来源：GET /api/v1/merchant/settlements" action="财务中心" />
+              <DataTable
+                columns={["结算单", "周期", "应结金额", "状态", "操作"]}
+                rows={settlements.map((settlement) => [
+                  <span className="mono">{settlement.settlementNo}</span>,
+                  settlement.period,
+                  <AmountText value={settlement.payableAmount} />,
+                  <StatusTag {...settlementStatusMap[settlement.status]} />,
+                  <button className="link-button">{settlement.status === "APPROVED" ? "申请提现" : "查看"}</button>
+                ])}
+              />
+            </Card>
+          )}
+        </section>
+      ) : null}
 
       {/* 员工管理 */}
-      <Card id="merchant-staffs">
+      {canShow("staffs") && <Card id="merchant-staffs">
         <SectionHeader
           title="员工管理"
           description="可添加、启用/停用商家员工，员工登录后按 RBAC 角色获取权限"
@@ -362,7 +375,7 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
             <button className="page-btn" disabled={staffPage >= totalPages} onClick={() => setStaffPage(p => p + 1)}>下一页</button>
           </div>
         )}
-      </Card>
+      </Card>}
 
       {/* 编辑员工模态框 */}
       {editStaff && (

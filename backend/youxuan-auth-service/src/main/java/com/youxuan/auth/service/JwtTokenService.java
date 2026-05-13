@@ -62,6 +62,9 @@ public class JwtTokenService {
         claims.put("userId", authAccountDO.getUserId());
         claims.put("merchantId", authAccountDO.getMerchantId());
         claims.put("roles", authAccountDO.getRoleCodeSet());
+        if (authAccountDO.getRoleType() != null) {
+            claims.put("roleType", authAccountDO.getRoleType());
+        }
         return Jwts.builder()
                 .setIssuer(authSecurityProperties.getIssuer())
                 .setSubject(authAccountDO.getAccount())

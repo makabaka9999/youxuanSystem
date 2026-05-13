@@ -160,6 +160,7 @@ public class AuthApplicationService {
         currentPrincipalDTO.setMerchantId(authAccountDO.getMerchantId());
         currentPrincipalDTO.setAccount(authAccountDO.getAccount());
         currentPrincipalDTO.setDisplayName(authAccountDO.getDisplayName());
+        currentPrincipalDTO.setRoleType(authAccountDO.getRoleType());
         currentPrincipalDTO.setRoleCodeSet(authAccountDO.getRoleCodeSet());
         currentPrincipalDTO.setPermissionCodeSet(authAccountDO.getPermissionCodeSet());
         return currentPrincipalDTO;

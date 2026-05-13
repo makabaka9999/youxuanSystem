@@ -29,10 +29,14 @@ public class JwtClaims {
     /** 显示名称 */
     private String displayName;
 
+    /** 商家员工角色类型（ADMIN / OPERATOR / CUSTOMER_SERVICE） */
+    private String roleType;
+
     public JwtClaims() {}
 
     public JwtClaims(Long principalId, String principalType, Long userId, Long merchantId,
-                     Set<String> roles, Set<String> permissions, String displayName) {
+                     Set<String> roles, Set<String> permissions, String displayName,
+                     String roleType) {
         this.principalId = principalId;
         this.principalType = principalType;
         this.userId = userId;
@@ -40,6 +44,7 @@ public class JwtClaims {
         this.roles = roles != null ? roles : Collections.emptySet();
         this.permissions = permissions != null ? permissions : Collections.emptySet();
         this.displayName = displayName;
+        this.roleType = roleType;
     }
 
     public Long getPrincipalId() { return principalId; }
@@ -62,4 +67,7 @@ public class JwtClaims {
 
     public String getDisplayName() { return displayName; }
     public void setDisplayName(String displayName) { this.displayName = displayName; }
+
+    public String getRoleType() { return roleType; }
+    public void setRoleType(String roleType) { this.roleType = roleType; }
 }

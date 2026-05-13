@@ -29,6 +29,9 @@ public class CurrentPrincipalDTO {
     /** 显示名称 */
     private String displayName;
 
+    /** 商家员工角色类型（ADMIN / OPERATOR / CUSTOMER_SERVICE） */
+    private String roleType;
+
     /** 角色编码集合 */
     private Set<String> roleCodeSet;
 
@@ -141,6 +144,24 @@ public class CurrentPrincipalDTO {
      */
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
+    }
+
+    /**
+     * 获取商家员工角色类型。
+     *
+     * @return 角色类型
+     */
+    public String getRoleType() {
+        return roleType;
+    }
+
+    /**
+     * 设置商家员工角色类型。
+     *
+     * @param roleType 角色类型
+     */
+    public void setRoleType(String roleType) {
+        this.roleType = roleType;
     }
 
     /**

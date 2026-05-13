@@ -57,8 +57,10 @@ public class JwtTokenValidator {
             List<String> roleList = claims.get("roles", List.class);
             Set<String> roles = roleList != null ? new HashSet<>(roleList) : Collections.emptySet();
 
+            String roleType = claims.get("roleType", String.class);
+
             return new JwtClaims(principalId, principalType, userId, merchantId, roles,
-                    Collections.emptySet(), displayName);
+                    Collections.emptySet(), displayName, roleType);
 
         } catch (ExpiredJwtException e) {
             log.warn("JWT expired: {}", e.getMessage());

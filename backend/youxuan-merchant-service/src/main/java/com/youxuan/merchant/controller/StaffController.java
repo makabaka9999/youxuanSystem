@@ -2,6 +2,7 @@ package com.youxuan.merchant.controller;
 
 import com.youxuan.common.api.ApiResponse;
 import com.youxuan.common.api.ErrorCode;
+import com.youxuan.common.exception.BizException;
 import com.youxuan.common.security.JwtRequestContext;
 import com.youxuan.common.web.RequestContext;
 import com.youxuan.merchant.dto.CreateStaffRequest;
@@ -32,6 +33,14 @@ public class StaffController {
         this.staffService = staffService;
     }
 
+    /** 校验当前用户是否有管理员权限（员工管理仅 ADMIN 可用） */
+    private void requireAdmin() {
+        String roleType = JwtRequestContext.get().getRoleType();
+        if (!"ADMIN".equals(roleType)) {
+            throw new BizException(ErrorCode.PERMISSION_DENIED, "仅管理员可管理员工");
+        }
+    }
+
     /**
      * 根据手机号查找用户（添加员工时使用）。
      *
@@ -55,6 +64,7 @@ public class StaffController {
      */
     @GetMapping
     public ApiResponse<List<MerchantStaffDO>> listStaff(@RequestParam(required = false) String keyword) {
+        requireAdmin();
         Long merchantId = JwtRequestContext.get().getMerchantId();
         List<MerchantStaffDO> staffList = staffService.listStaff(merchantId, keyword);
         return ApiResponse.success(staffList, RequestContext.getRequestId());
@@ -68,6 +78,7 @@ public class StaffController {
      */
     @PostMapping
     public ApiResponse<MerchantStaffDO> createStaff(@RequestBody CreateStaffRequest request) {
+        requireAdmin();
         Long merchantId = JwtRequestContext.get().getMerchantId();
         MerchantStaffDO staff = staffService.createStaff(merchantId, request);
         return ApiResponse.success(staff, RequestContext.getRequestId());
@@ -82,6 +93,7 @@ public class StaffController {
      */
     @PutMapping("/{staffId}")
     public ApiResponse<Void> updateStaff(@PathVariable Long staffId, @RequestBody UpdateStaffRequest request) {
+        requireAdmin();
         Long merchantId = JwtRequestContext.get().getMerchantId();
         staffService.updateStaff(merchantId, staffId, request);
         return ApiResponse.success(null, RequestContext.getRequestId());
@@ -95,6 +107,7 @@ public class StaffController {
      */
     @PutMapping("/{staffId}/status")
     public ApiResponse<Void> toggleStaff(@PathVariable Long staffId) {
+        requireAdmin();
         Long merchantId = JwtRequestContext.get().getMerchantId();
         staffService.toggleStatus(merchantId, staffId);
         return ApiResponse.success(null, RequestContext.getRequestId());

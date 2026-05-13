@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import javax.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,8 +26,22 @@ public class UploadController {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(UploadController.class);
 
-    @Value("${youxuan.upload.path:./uploads}")
+    @Value("${youxuan.upload.path:}")
     private String uploadPath;
+
+    /** 实际的绝对路径 */
+    private String resolvedPath;
+
+    @PostConstruct
+    public void init() {
+        if (uploadPath == null || uploadPath.trim().isEmpty()) {
+            resolvedPath = System.getProperty("user.dir") + File.separator + "uploads";
+        } else {
+            File f = new File(uploadPath);
+            resolvedPath = f.isAbsolute() ? uploadPath : System.getProperty("user.dir") + File.separator + uploadPath;
+        }
+        LOGGER.info("文件上传目录: {}", resolvedPath);
+    }
 
     /**
      * 上传图片，返回可访问的 URL。
@@ -45,7 +60,7 @@ public class UploadController {
         String fileName = UUID.randomUUID().toString() + ext;
 
         try {
-            File dir = new File(uploadPath);
+            File dir = new File(resolvedPath);
             if (!dir.exists()) dir.mkdirs();
             File dest = new File(dir, fileName);
             file.transferTo(dest);

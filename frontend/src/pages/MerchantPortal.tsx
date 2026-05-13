@@ -8,7 +8,7 @@
  * - 账单与结算提现
  * - 员工管理（RBAC 角色关联）
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Banknote,
   Boxes,
@@ -45,6 +45,8 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [staffLoading, setStaffLoading] = useState(false);
   const [staffSearch, setStaffSearch] = useState("");
+  const [staffPage, setStaffPage] = useState(1);
+  const pageSize = 8;
   const [showAddModal, setShowAddModal] = useState(false);
   const [addMobile, setAddMobile] = useState("");
   const [addStaffName, setAddStaffName] = useState("");
@@ -55,22 +57,42 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
   const [submitLoading, setSubmitLoading] = useState(false);
   const [staffError, setStaffError] = useState("");
 
-  /** 搜索过滤后的员工列表 */
-  const filteredStaff = useMemo(() => {
-    if (!staffSearch.trim()) return staffList;
-    const q = staffSearch.trim().toLowerCase();
-    return staffList.filter(s => s.staffName.toLowerCase().includes(q));
-  }, [staffList, staffSearch]);
+  /** 分页后的员工列表 */
+  const pagedStaff = useMemo(() => {
+    const start = (staffPage - 1) * pageSize;
+    return staffList.slice(start, start + pageSize);
+  }, [staffList, staffPage]);
 
-  /** 加载员工列表 */
-  const loadStaff = useCallback(async () => {
+  const totalPages = Math.ceil(staffList.length / pageSize) || 1;
+
+  /** 搜索去抖计时器 */
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** 加载员工列表（带搜索关键词） */
+  const loadStaff = useCallback(async (keyword?: string) => {
     setStaffLoading(true);
-    const list = await api.fetchStaffList();
+    const list = await api.fetchStaffList(keyword || undefined);
     if (list) setStaffList(list);
     setStaffLoading(false);
   }, []);
 
+  /** 初始加载 */
   useEffect(() => { loadStaff(); }, [loadStaff]);
+
+  /** 搜索输入时 debounce 300ms 后查询后端 */
+  const handleSearchChange = useCallback((value: string) => {
+    setStaffSearch(value);
+    setStaffPage(1);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      loadStaff(value.trim() || undefined);
+    }, 300);
+  }, [loadStaff]);
+
+  /** 组件卸载时清理计时器 */
+  useEffect(() => {
+    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
+  }, []);
 
   /** 多选角色切换 */
   const toggleRole = useCallback((role: string) => {
@@ -270,7 +292,7 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
               className="search-input"
               placeholder="搜索员工姓名..."
               value={staffSearch}
-              onChange={e => setStaffSearch(e.target.value)}
+              onChange={e => handleSearchChange(e.target.value)}
             />
           </div>
           <button className="primary-button compact" type="button" onClick={() => setShowAddModal(true)}>
@@ -280,12 +302,12 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
         </div>
         {staffLoading ? (
           <div className="loading-inline"><Loader2 size={18} className="spin" /> 加载中...</div>
-        ) : filteredStaff.length === 0 ? (
+        ) : staffList.length === 0 ? (
           <div className="empty-state">{staffSearch ? "未找到匹配的员工" : '暂无员工，点击"添加员工"按钮添加'}</div>
         ) : (
           <DataTable
             columns={["姓名", "角色", "状态", "操作"]}
-            rows={filteredStaff.map((staff) => [
+            rows={pagedStaff.map((staff) => [
               <div><div className="staff-name">{staff.staffName}</div></div>,
               <div className="role-tags">
                 {((staff.roleType || "").split(",")).map(r => r.trim()).filter(Boolean).map(r => (
@@ -298,6 +320,13 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
               </button>
             ])}
           />
+        )}
+        {staffList.length > pageSize && (
+          <div className="pagination">
+            <button className="page-btn" disabled={staffPage <= 1} onClick={() => setStaffPage(p => p - 1)}>上一页</button>
+            <span className="page-info">{staffPage} / {totalPages}</span>
+            <button className="page-btn" disabled={staffPage >= totalPages} onClick={() => setStaffPage(p => p + 1)}>下一页</button>
+          </div>
         )}
       </Card>
 

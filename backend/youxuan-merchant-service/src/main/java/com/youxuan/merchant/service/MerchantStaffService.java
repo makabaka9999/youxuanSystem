@@ -40,8 +40,8 @@ public class MerchantStaffService {
      * @param merchantId 商家 ID
      * @return 员工列表
      */
-    public List<MerchantStaffDO> listStaff(Long merchantId) {
-        return staffRepository.findByMerchantId(merchantId);
+    public List<MerchantStaffDO> listStaff(Long merchantId, String keyword) {
+        return staffRepository.findByMerchantId(merchantId, keyword);
     }
 
     /**
@@ -114,7 +114,7 @@ public class MerchantStaffService {
      */
     @Transactional
     public void toggleStatus(Long merchantId, Long staffId) {
-        List<MerchantStaffDO> allStaff = staffRepository.findByMerchantId(merchantId);
+        List<MerchantStaffDO> allStaff = staffRepository.findByMerchantId(merchantId, null);
         MerchantStaffDO target = allStaff.stream()
                 .filter(s -> s.getId().equals(staffId))
                 .findFirst()

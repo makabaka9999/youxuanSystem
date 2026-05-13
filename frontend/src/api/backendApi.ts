@@ -185,12 +185,13 @@ async function fetchSettlements(): Promise<Settlement[]> {
 
 // ── 员工相关 ──
 
-/** 获取商家员工列表（后端返回数组） */
-async function fetchStaffList(): Promise<Staff[]> {
+/** 获取商家员工列表，支持按姓名搜索 */
+async function fetchStaffList(keyword?: string): Promise<Staff[]> {
+  const params = keyword ? `?keyword=${encodeURIComponent(keyword)}` : "";
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 2500);
   try {
-    const resp = await fetch(`${API_BASE_URL}/merchant/staffs`, { headers: headers(), signal: controller.signal });
+    const resp = await fetch(`${API_BASE_URL}/merchant/staffs${params}`, { headers: headers(), signal: controller.signal });
     if (!resp.ok) return [];
     const body = await resp.json();
     if (body.code !== "SUCCESS") return [];
@@ -340,8 +341,8 @@ export const api = {
   },
 
   /** 获取员工列表 */
-  async fetchStaffList(): Promise<Staff[]> {
-    return fetchStaffList();
+  async fetchStaffList(keyword?: string): Promise<Staff[]> {
+    return fetchStaffList(keyword);
   },
 
   /** 根据手机号查找用户 */

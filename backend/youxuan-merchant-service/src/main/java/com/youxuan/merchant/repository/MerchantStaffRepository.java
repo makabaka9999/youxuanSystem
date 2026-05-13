@@ -23,15 +23,19 @@ public class MerchantStaffRepository {
     }
 
     /**
-     * 根据商家 ID 查询所有员工。
+     * 根据商家 ID 查询员工，支持按姓名模糊搜索。
      *
      * @param merchantId 商家 ID
+     * @param keyword    搜索关键词（可选，匹配员工姓名）
      * @return 员工列表
      */
-    public List<MerchantStaffDO> findByMerchantId(Long merchantId) {
-        return jdbcTemplate.query(
-                "SELECT * FROM merchant_staffs WHERE merchant_id = ? AND deleted_at IS NULL ORDER BY id ASC",
-                staffRowMapper(), merchantId);
+    public List<MerchantStaffDO> findByMerchantId(Long merchantId, String keyword) {
+        String sql = "SELECT * FROM merchant_staffs WHERE merchant_id = ? AND deleted_at IS NULL";
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            sql += " AND staff_name LIKE ?";
+            return jdbcTemplate.query(sql + " ORDER BY id ASC", staffRowMapper(), merchantId, "%" + keyword.trim() + "%");
+        }
+        return jdbcTemplate.query(sql + " ORDER BY id ASC", staffRowMapper(), merchantId);
     }
 
     /**

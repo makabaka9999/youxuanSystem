@@ -47,14 +47,15 @@ public class StaffController {
     }
 
     /**
-     * 查询当前商家下的所有员工。
+     * 查询当前商家下的所有员工，支持按姓名模糊搜索。
      *
+     * @param keyword 搜索关键词（可选）
      * @return 员工列表
      */
     @GetMapping
-    public ApiResponse<List<MerchantStaffDO>> listStaff() {
+    public ApiResponse<List<MerchantStaffDO>> listStaff(@RequestParam(required = false) String keyword) {
         Long merchantId = JwtRequestContext.get().getMerchantId();
-        List<MerchantStaffDO> staffList = staffService.listStaff(merchantId);
+        List<MerchantStaffDO> staffList = staffService.listStaff(merchantId, keyword);
         return ApiResponse.success(staffList, RequestContext.getRequestId());
     }
 

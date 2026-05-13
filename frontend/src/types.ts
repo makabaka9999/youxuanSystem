@@ -216,6 +216,26 @@ export type OperationLog = {
   createdAt: string;
 };
 
+/** 商家员工 */
+export type Staff = {
+  /** 员工 ID */
+  id: string;
+  /** 关联用户 ID */
+  userId: string;
+  /** 商家 ID */
+  merchantId: string;
+  /** 员工姓名 */
+  staffName: string;
+  /** 角色类型 */
+  roleType: string;
+  /** 状态 */
+  status: "ENABLED" | "DISABLED";
+  /** 备注 */
+  remark: string;
+  /** 创建时间 */
+  createdAt: string;
+};
+
 // ── Auth Types ──
 
 /** 加密相关类型命名空间 */

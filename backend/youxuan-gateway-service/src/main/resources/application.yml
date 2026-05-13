@@ -10,7 +10,64 @@ spring:
         server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
         namespace: ${NACOS_NAMESPACE:public}
         group: ${NACOS_GROUP:DEFAULT_GROUP}
-        enabled: ${NACOS_DISCOVERY_ENABLED:false}
+        enabled: true
+    gateway:
+      # 从 Nacos 动态发现服务，自动创建 lb:// 路由
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      # 全局 CORS — 对所有请求（含 OPTIONS 预检）统一处理
+      # 使用 allowedOriginPatterns 而非 allowedOrigins，
+      # 以兼容 allowCredentials: true 模式
+      globalcors:
+        add-to-simple-url-handler-mapping: true
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns:
+              - "*"
+            allowedMethods:
+              - "*"
+            allowedHeaders:
+              - "*"
+            exposedHeaders:
+              - X-Request-Id
+            allowCredentials: true
+            maxAge: 1800
+      routes:
+        # 认证权限服务
+        - id: youxuan-auth-service
+          uri: lb://youxuan-auth-service
+          predicates:
+            - Path=/api/v1/auth/**
+        # 商品服务
+        - id: youxuan-product-service
+          uri: lb://youxuan-product-service
+          predicates:
+            - Path=/api/v1/products/**
+        # 交易订单服务（购物车、订单、售后）
+        - id: youxuan-order-service
+          uri: lb://youxuan-order-service
+          predicates:
+            - Path=/api/v1/carts/**,/api/v1/orders/**,/api/v1/after-sales/**
+        # 商家服务
+        - id: youxuan-merchant-service
+          uri: lb://youxuan-merchant-service
+          predicates:
+            - Path=/api/v1/merchant/**
+        # 资金结算服务
+        - id: youxuan-finance-service
+          uri: lb://youxuan-finance-service
+          predicates:
+            - Path=/api/v1/finance/**
+        # 平台后台服务
+        - id: youxuan-admin-service
+          uri: lb://youxuan-admin-service
+          predicates:
+            - Path=/api/v1/admin/**
+        # Gatway 自身端点（无需转发）
+        # - /api/v1/health → GatewayHealthController
+        # - /api/v1/gateway/services → ServiceDirectoryController
     sentinel:
       transport:
         dashboard: ${SENTINEL_DASHBOARD:127.0.0.1:8858}
@@ -25,12 +82,15 @@ management:
       exposure:
         include: health,info,metrics
 
-youxuan:
-  gateway:
-    cors:
-      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
-
 logging:
   file:
     path: ${LOG_PATH:logs}
     name: ${LOG_PATH:logs}/youxuan-gateway-service.log
+
+# Dubbo RPC 配置（仅消费端，不暴露服务）
+dubbo:
+  application:
+    name: ${spring.application.name}
+    qos-enable: false
+  registry:
+    address: nacos://${NACOS_SERVER_ADDR:127.0.0.1:8848}

@@ -9,7 +9,7 @@ spring:
         server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
         namespace: ${NACOS_NAMESPACE:public}
         group: ${NACOS_GROUP:DEFAULT_GROUP}
-        enabled: ${NACOS_DISCOVERY_ENABLED:false}
+        enabled: true
     sentinel:
       transport:
         dashboard: ${SENTINEL_DASHBOARD:127.0.0.1:8858}
@@ -49,9 +49,27 @@ logging:
     path: ${LOG_PATH:logs}
     name: ${LOG_PATH:logs}/youxuan-finance-service.log
 
+# 启用 JWT 认证过滤链，签名密钥必须与 auth-service 的 youxuan.auth.security.secret 一致
 youxuan:
+  auth:
+    jwt:
+      enabled: true
+      secret: ${JWT_SECRET:replace-with-at-least-32-bytes-secret}
   finance:
     jobs:
       daily-bill-cron: ${FINANCE_DAILY_BILL_CRON:0 10 0 * * ?}
       reconciliation-cron: ${FINANCE_RECONCILIATION_CRON:0 30 1 * * ?}
       settlement-cron: ${FINANCE_SETTLEMENT_CRON:0 0 2 * * ?}
+
+# Dubbo RPC 配置
+dubbo:
+  application:
+    name: ${spring.application.name}-rpc
+    qos-port: ${DUBBO_QOS_PORT:22225}
+  registry:
+    address: nacos://${NACOS_SERVER_ADDR:127.0.0.1:8848}
+  protocol:
+    name: dubbo
+    port: ${DUBBO_PORT:20885}
+  scan:
+    base-packages: com.youxuan

@@ -5,11 +5,11 @@
  * 优先调用真实后端接口，异常时自动降级为 mock 数据，
  * 确保系统在任何情况下都不报错。
  */
-import type { AfterSale, CartItem, ExceptionRecord, Merchant, Metric, OperationLog, Order, Product, Settlement } from "../types";
+import type { AfterSale, CartItem, ExceptionRecord, Merchant, Metric, OperationLog, Order, Product, Settlement, Staff } from "../types";
 import { afterSaleStatusMap, orderStatusMap } from "../domain";
 
 // 后端 API 基础路径
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8081/api/v1";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
 
 /** 从 localStorage 获取 JWT Token */
 function getToken(): string | null {
@@ -37,14 +37,18 @@ function headers(): Record<string, string> {
  * 安全的 JSON 请求：调用后端接口，失败时返回 null 而非抛异常。
  */
 async function safeFetch<T>(url: string): Promise<T | null> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 2500);
   try {
-    const resp = await fetch(url, { headers: headers() });
+    const resp = await fetch(url, { headers: headers(), signal: controller.signal });
     if (!resp.ok) return null;
     const body = await resp.json();
     if (body.code !== "SUCCESS") return null;
     return body.data as T;
   } catch {
     return null;
+  } finally {
+    window.clearTimeout(timeout);
   }
 }
 
@@ -179,6 +183,55 @@ async function fetchSettlements(): Promise<Settlement[]> {
   }));
 }
 
+// ── 员工相关 ──
+
+/** 获取商家员工列表 */
+async function fetchStaffList(): Promise<Staff[]> {
+  const data = await safeFetch<{ list: Staff[] }>(`${API_BASE_URL}/merchant/staffs`);
+  if (!data) return [];
+  return data.list || [];
+}
+
+/** 根据手机号查找用户 */
+async function lookupUser(mobile: string): Promise<{ id: string; mobile: string; nickname: string } | null> {
+  const data = await safeFetch<{ id: string; mobile: string; nickname: string }>(
+    `${API_BASE_URL}/merchant/staffs/lookup?mobile=${encodeURIComponent(mobile)}`
+  );
+  return data;
+}
+
+/** 创建员工 */
+async function createStaff(request: { mobile: string; staffName: string; roleType: string }): Promise<Staff | null> {
+  try {
+    const resp = await fetch(`${API_BASE_URL}/merchant/staffs`, {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify(request),
+    });
+    if (!resp.ok) return null;
+    const body = await resp.json();
+    if (body.code !== "SUCCESS") return null;
+    return body.data as Staff;
+  } catch {
+    return null;
+  }
+}
+
+/** 切换员工启用/禁用状态 */
+async function toggleStaffStatus(staffId: string): Promise<boolean> {
+  try {
+    const resp = await fetch(`${API_BASE_URL}/merchant/staffs/${staffId}/status`, {
+      method: "PUT",
+      headers: headers(),
+    });
+    if (!resp.ok) return false;
+    const body = await resp.json();
+    return body.code === "SUCCESS";
+  } catch {
+    return false;
+  }
+}
+
 // ── 异常相关 ──
 
 /** 获取异常池列表 */
@@ -280,6 +333,26 @@ export const api = {
       afterSales,
       settlements
     };
+  },
+
+  /** 获取员工列表 */
+  async fetchStaffList(): Promise<Staff[]> {
+    return fetchStaffList();
+  },
+
+  /** 根据手机号查找用户 */
+  async lookupUser(mobile: string): Promise<{ id: string; mobile: string; nickname: string } | null> {
+    return lookupUser(mobile);
+  },
+
+  /** 创建员工 */
+  async createStaff(request: { mobile: string; staffName: string; roleType: string }): Promise<Staff | null> {
+    return createStaff(request);
+  },
+
+  /** 切换员工状态 */
+  async toggleStaffStatus(staffId: string): Promise<boolean> {
+    return toggleStaffStatus(staffId);
   },
 
   /** 获取平台后台首页数据 */

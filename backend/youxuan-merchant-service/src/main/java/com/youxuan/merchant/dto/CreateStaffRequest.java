@@ -5,8 +5,8 @@ package com.youxuan.merchant.dto;
  */
 public class CreateStaffRequest {
 
-    /** 用户 ID */
-    private Long userId;
+    /** 员工手机号（用于查找对应用户） */
+    private String mobile;
 
     /** 员工姓名 */
     private String staffName;
@@ -20,8 +20,8 @@ public class CreateStaffRequest {
     /** 备注 */
     private String remark;
 
-    public Long getUserId() { return userId; }
-    public void setUserId(Long userId) { this.userId = userId; }
+    public String getMobile() { return mobile; }
+    public void setMobile(String mobile) { this.mobile = mobile; }
     public String getStaffName() { return staffName; }
     public void setStaffName(String staffName) { this.staffName = staffName; }
     public String getRoleType() { return roleType; }

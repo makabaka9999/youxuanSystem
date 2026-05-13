@@ -36,6 +36,16 @@ public class StoreRepository {
     }
 
     /**
+     * 根据店铺 ID 查询店铺。
+     */
+    public StoreDO findById(Long storeId) {
+        List<StoreDO> list = jdbcTemplate.query(
+                "SELECT * FROM stores WHERE id = ? AND deleted_at IS NULL",
+                storeRowMapper(), storeId);
+        return list.isEmpty() ? null : list.get(0);
+    }
+
+    /**
      * 根据商家 ID 和状态查询店铺。
      *
      * @param merchantId 商家 ID

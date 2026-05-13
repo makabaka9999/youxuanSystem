@@ -21,10 +21,11 @@ type UserPortalProps = {
   cartItems: CartItem[];
   orders: Order[];
   afterSales: AfterSale[];
+  onNavigate?: (target: string) => void;
 };
 
 /** 用户端门户页面组件 */
-export function UserPortal({ metrics, products, cartItems, orders, afterSales }: UserPortalProps) {
+export function UserPortal({ metrics, products, cartItems, orders, afterSales, onNavigate }: UserPortalProps) {
   // 购物车数据（本地可编辑状态）
   const [editableCartItems, setEditableCartItems] = useState<CartItem[]>(cartItems);
 
@@ -72,17 +73,17 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
   return (
     <div className="portal-page user-page">
       {/* Hero 区域：用户端简介与待处理概要 */}
-      <section className="hero user-hero">
+      <section id="user-home" className="hero user-hero">
         <div className="hero-copy">
           <span className="eyebrow">用户端 H5</span>
           <h1>从浏览到售后，一条链路完成交易闭环</h1>
           <p>商品、购物车、拆单结算、支付结果、物流和售后进度都在同一工作流里处理。</p>
           <div className="hero-actions">
-            <button className="primary-button" type="button">
+            <button className="primary-button" type="button" onClick={() => onNavigate?.("products")}>
               <ShoppingBag size={16} />
               浏览商品
             </button>
-            <button className="secondary-button" type="button">
+            <button className="secondary-button" type="button" onClick={() => onNavigate?.("after-sales")}>
               <RotateCcw size={16} />
               查看售后
             </button>
@@ -93,15 +94,15 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
           <div className="phone-top" />
           <div className="phone-card">
             <div className="phone-title">待处理</div>
-            <div className="phone-row" style={{ cursor: "pointer" }}>
+            <div className="phone-row" style={{ cursor: "pointer" }} onClick={() => onNavigate?.("cart")}>
               <ShoppingCart size={18} />
               购物车已选 <strong style={{ color: "#fff", marginLeft: 4 }}>{selectedCount}</strong> 件
             </div>
-            <div className="phone-row" style={{ cursor: "pointer" }}>
+            <div className="phone-row" style={{ cursor: "pointer" }} onClick={() => onNavigate?.("orders")}>
               <PackageCheck size={18} />
               1 个包裹运输中
             </div>
-            <div className="phone-row" style={{ cursor: "pointer" }}>
+            <div className="phone-row" style={{ cursor: "pointer" }} onClick={() => onNavigate?.("after-sales")}>
               <RotateCcw size={18} />
               2 个售后正在处理
             </div>
@@ -114,7 +115,7 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
 
       <section className="content-grid two-col">
         {/* 商品发现区域 */}
-        <Card>
+        <Card id="user-products">
           <SectionHeader title="商品发现" description="来源：GET /api/v1/products" action="全部商品" />
           <div className="product-grid">
             {products.map((product) => (
@@ -134,7 +135,7 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
         </Card>
 
         {/* 购物车区域：支持选择、数量增减、删除和拆单结算 */}
-        <Card>
+        <Card id="user-cart">
           <SectionHeader title="购物车拆单" description="来源：GET /api/v1/cart-items" action="去结算" />
           <div className="cart-list">
             {editableCartItems.map((item) => (
@@ -179,7 +180,7 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
 
       <section className="content-grid two-col">
         {/* 订单列表 */}
-        <Card>
+        <Card id="user-orders">
           <SectionHeader title="我的订单" description="来源：GET /api/v1/orders" action="订单列表" />
           <DataTable
             columns={["订单号", "店铺", "金额", "状态", "操作"]}
@@ -194,7 +195,7 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
         </Card>
 
         {/* 售后进度时间线 */}
-        <Card>
+        <Card id="user-after-sales">
           <SectionHeader title="售后进度" description="来源：GET /api/v1/after-sales/{id}" action="售后中心" />
           <div className="timeline-list">
             {afterSales.map((item) => (
@@ -215,7 +216,7 @@ export function UserPortal({ metrics, products, cartItems, orders, afterSales }:
       </section>
 
       {/* 用户端交易链路概览 */}
-      <Card className="flow-panel">
+      <Card id="user-profile" className="flow-panel">
         <SectionHeader title="用户端交互链路" description="页面按钮只控制体验，最终状态以服务端响应为准" />
         <div className="flow-steps">
           {[

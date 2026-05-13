@@ -1,5 +1,6 @@
 package com.youxuan.auth;
 
+import org.apache.dubbo.config.spring.context.annotation.EnableDubbo;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
@@ -12,6 +13,7 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
  */
 @SpringBootApplication(scanBasePackages = {"com.youxuan.auth", "com.youxuan.common"})
 @ConfigurationPropertiesScan
+@EnableDubbo
 public class AuthServiceApplication {
 
     /**

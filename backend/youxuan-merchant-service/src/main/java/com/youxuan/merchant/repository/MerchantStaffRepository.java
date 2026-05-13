@@ -48,6 +48,19 @@ public class MerchantStaffRepository {
     }
 
     /**
+     * 根据手机号查询用户 ID。
+     *
+     * @param mobile 手机号
+     * @return 用户 ID，不存在返回 null
+     */
+    public Long findUserIdByMobile(String mobile) {
+        List<Long> ids = jdbcTemplate.queryForList(
+                "SELECT id FROM users WHERE mobile = ? AND deleted_at IS NULL",
+                Long.class, mobile);
+        return ids.isEmpty() ? null : ids.get(0);
+    }
+
+    /**
      * 根据商家 ID 和用户 ID 查询员工。
      *
      * @param merchantId 商家 ID

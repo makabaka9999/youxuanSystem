@@ -67,6 +67,16 @@ public class ProductRepository {
     }
 
     /**
+     * 按商家 ID 统计商品总数。
+     */
+    public int countByMerchantId(Long merchantId) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM products WHERE merchant_id = ? AND deleted_at IS NULL",
+                Integer.class, merchantId);
+        return count != null ? count : 0;
+    }
+
+    /**
      * 统计可售商品总数。
      */
     public int countOnSaleProducts(String keyword, Long categoryId) {

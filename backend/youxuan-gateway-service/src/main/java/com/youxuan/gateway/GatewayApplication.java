@@ -9,15 +9,21 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
  * <p>
  * API 网关是整个平台的统一入口，负责：
  * <ul>
- *   <li>路由转发：将前端请求分发到各微服务</li>
+ *   <li>路由转发：将前端请求分发到各微服务（基于 Spring Cloud Gateway）</li>
  *   <li>CORS 跨域处理</li>
  *   <li>健康检查和服务目录展示</li>
  * </ul>
- * 扫描 {@code com.youxuan.gateway} 和 {@code com.youxuan.common} 两个包，
- * 以便加载网关自身的 Bean 以及通用模块的自动配置。
+ * 排除与 Servlet 容器绑定的自动配置类（Gateway 基于 WebFlux 响应式栈），
+ * 包括 {@code CommonWebAutoConfiguration} 和 {@code JwtAutoConfiguration}。
  * </p>
  */
-@SpringBootApplication(scanBasePackages = {"com.youxuan.gateway", "com.youxuan.common"})
+@SpringBootApplication(
+    scanBasePackages = {"com.youxuan.gateway", "com.youxuan.common"},
+    excludeName = {
+        "com.youxuan.common.config.CommonWebAutoConfiguration",
+        "com.youxuan.common.security.JwtAutoConfiguration"
+    }
+)
 @ConfigurationPropertiesScan
 public class GatewayApplication {
 

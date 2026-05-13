@@ -27,6 +27,7 @@
         <module>youxuan-merchant-service</module>
         <module>youxuan-finance-service</module>
         <module>youxuan-admin-service</module>
+        <module>youxuan-api</module>
     </modules>
 
     <properties>
@@ -38,6 +39,8 @@
         <mysql.connector.version>8.0.33</mysql.connector.version>
         <spring-cloud.version>2021.0.8</spring-cloud.version>
         <spring-cloud-alibaba.version>2021.0.5.0</spring-cloud-alibaba.version>
+        <!-- Dubbo RPC 版本 -->
+        <dubbo.version>3.2.14</dubbo.version>
     </properties>
 
     <dependencyManagement>
@@ -62,8 +65,26 @@
                 <version>${project.version}</version>
             </dependency>
             <dependency>
+                <groupId>com.youxuan</groupId>
+                <artifactId>youxuan-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!-- Dubbo BOM，统一管理 Dubbo 依赖版本 -->
+            <dependency>
+                <groupId>org.apache.dubbo</groupId>
+                <artifactId>dubbo-bom</artifactId>
+                <version>${dubbo.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
                 <groupId>org.flywaydb</groupId>
                 <artifactId>flyway-core</artifactId>
+                <version>${flyway.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-mysql</artifactId>
                 <version>${flyway.version}</version>
             </dependency>
             <dependency>

@@ -561,7 +561,7 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
             </div>
             <div className="modal-footer">
               <button className="secondary-button" onClick={() => setShowProductModal(false)} disabled={prodSubmitting}>取消</button>
-              <button className="primary-button" onClick={handlePublishProduct} disabled={prodSubmitting}>
+              <button className="primary-button" onClick={handlePublishProduct} disabled={prodSubmitting || !prodName.trim() || !prodCategoryId || !prodPrice.trim() || !prodStock.trim()}>
                 {prodSubmitting ? <Loader2 size={16} className="spin" /> : <Plus size={16} />}
                 提交审核
               </button>

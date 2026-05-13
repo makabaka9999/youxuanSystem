@@ -185,6 +185,60 @@ async function fetchSettlements(): Promise<Settlement[]> {
 
 // ── 员工相关 ──
 
+/** 获取商家商品列表 */
+async function fetchMerchantProducts(): Promise<Product[]> {
+  const data = await safeFetch<{ items: any[]; total: number }>(`${API_BASE_URL}/merchant/products?pageNo=1&pageSize=50`);
+  if (!data || !data.items) return [];
+  return data.items.map((p: any) => ({
+    id: String(p.id || ""),
+    name: p.productName || "",
+    storeName: "",
+    category: String(p.categoryId || ""),
+    price: String(p.price || "0"),
+    stock: p.stockTotal || 0,
+    sales: 0,
+    status: p.auditStatus === "REJECTED" ? "REJECTED" as const
+         : p.auditStatus === "APPROVED" && p.saleStatus === "ON_SALE" ? "ON_SALE" as const
+         : p.auditStatus === "APPROVED" && p.saleStatus === "OFF_SALE" ? "OFF_SALE" as const
+         : "AUDITING" as const,
+    image: p.mainImageUrl || "",
+  }));
+}
+
+/** 创建商品 */
+async function createMerchantProduct(request: {
+  productName: string;
+  categoryId: number;
+  price: string;
+  stockTotal: number;
+  mainImageUrl: string;
+  detailHtml: string;
+}): Promise<void> {
+  const resp = await fetch(`${API_BASE_URL}/merchant/products`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({ ...request, price: Number(request.price) }),
+  });
+  const body = await resp.json();
+  if (body.code !== "SUCCESS") throw new Error(body.message || "发布商品失败");
+}
+
+/** 获取类目列表 */
+async function fetchCategories(): Promise<{ id: number; categoryName: string }[]> {
+  const data = await safeFetch<any[]>(`${API_BASE_URL}/categories/tree`);
+  if (!data) return [];
+  // 展平树结构
+  const flat: { id: number; categoryName: string }[] = [];
+  const walk = (items: any[]) => {
+    for (const item of items) {
+      flat.push({ id: item.id, categoryName: item.categoryName || "" });
+      if (item.children) walk(item.children);
+    }
+  };
+  walk(data);
+  return flat;
+}
+
 /** 获取商家员工列表，支持按姓名搜索 */
 async function fetchStaffList(keyword?: string): Promise<Staff[]> {
   const params = keyword ? `?keyword=${encodeURIComponent(keyword)}` : "";
@@ -333,7 +387,8 @@ export const api = {
 
   /** 获取商家端首页数据 */
   async getMerchantHome() {
-    const [orders, afterSales, settlements] = await Promise.all([
+    const [products, orders, afterSales, settlements] = await Promise.all([
+      fetchMerchantProducts().catch(() => [] as Product[]),
       fetchOrders().catch(() => [] as Order[]),
       fetchAfterSales().catch(() => [] as AfterSale[]),
       fetchSettlements().catch(() => [] as Settlement[])
@@ -346,7 +401,7 @@ export const api = {
             { label: "结算中", value: String(settlements.filter(s => s.status === "PENDING_AUDIT").length), hint: "待审核", tone: "info" as const }
           ]
         : mockMetrics.merchant,
-      products: [],
+      products,
       orders,
       afterSales,
       settlements
@@ -366,6 +421,23 @@ export const api = {
   /** 创建员工 */
   async createStaff(request: { mobile: string; staffName: string; roleType: string }): Promise<Staff> {
     return createStaff(request);
+  },
+
+  /** 获取商家商品列表 */
+  async fetchMerchantProducts(): Promise<Product[]> {
+    return fetchMerchantProducts();
+  },
+
+  /** 创建商品 */
+  async createMerchantProduct(request: {
+    productName: string; categoryId: number; price: string; stockTotal: number; mainImageUrl: string; detailHtml: string;
+  }): Promise<void> {
+    return createMerchantProduct(request);
+  },
+
+  /** 获取类目列表 */
+  async fetchCategories(): Promise<{ id: number; categoryName: string }[]> {
+    return fetchCategories();
   },
 
   /** 更新员工信息 */

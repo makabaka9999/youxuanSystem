@@ -2670,6 +2670,8 @@ tbody tr:hover {
   gap: 4px;
 }
 
+.required { color: var(--color-danger); margin-left: 2px; }
+
 .primary-button.compact {
   min-height: 36px;
   font-size: 13px;

@@ -63,6 +63,18 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
   const [editStaffName, setEditStaffName] = useState("");
   const [editRoleTypes, setEditRoleTypes] = useState<string[]>([]);
 
+  // ── 发布商品状态 ──
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [prodName, setProdName] = useState("");
+  const [prodCategoryId, setProdCategoryId] = useState<number>(0);
+  const [prodPrice, setProdPrice] = useState("");
+  const [prodStock, setProdStock] = useState("");
+  const [prodImage, setProdImage] = useState("");
+  const [prodDesc, setProdDesc] = useState("");
+  const [prodCategories, setProdCategories] = useState<{ id: number; categoryName: string }[]>([]);
+  const [prodSubmitting, setProdSubmitting] = useState(false);
+  const [prodError, setProdError] = useState("");
+
   /** 分页后的员工列表 */
   const pagedStaff = useMemo(() => {
     const start = (staffPage - 1) * pageSize;
@@ -185,6 +197,44 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
     }
   }, [loadStaff]);
 
+  /** 打开发布商品弹窗时加载类目 */
+  const openProductModal = useCallback(async () => {
+    setShowProductModal(true);
+    setProdError("");
+    if (prodCategories.length === 0) {
+      const cats = await api.fetchCategories();
+      setProdCategories(cats);
+    }
+  }, [prodCategories.length]);
+
+  /** 提交发布商品 */
+  const handlePublishProduct = useCallback(async () => {
+    if (!prodName.trim() || !prodPrice.trim() || !prodStock.trim()) {
+      setProdError("请填写商品名称、价格和库存");
+      return;
+    }
+    setProdSubmitting(true);
+    setProdError("");
+    try {
+      await api.createMerchantProduct({
+        productName: prodName.trim(),
+        categoryId: prodCategoryId,
+        price: prodPrice.trim(),
+        stockTotal: parseInt(prodStock, 10) || 0,
+        mainImageUrl: prodImage.trim(),
+        detailHtml: prodDesc.trim(),
+      });
+      setShowProductModal(false);
+      setProdName(""); setProdCategoryId(0); setProdPrice(""); setProdStock("");
+      setProdImage(""); setProdDesc("");
+      // 刷新页面数据以展示新商品
+      window.location.reload();
+    } catch (err) {
+      setProdError(err instanceof Error ? err.message : "发布商品失败");
+    }
+    setProdSubmitting(false);
+  }, [prodName, prodCategoryId, prodPrice, prodStock, prodImage, prodDesc]);
+
   /** 判断区域是否可见 */
   const canShow = useCallback((section: string) => {
     return !visibleSections || visibleSections.includes(section);
@@ -213,7 +263,7 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
           <h1>商品、履约、售后、资金都围绕店铺工作台展开</h1>
           <p>冻结状态下仍保留已支付订单履约能力，财务动作和员工权限独立管控。</p>
           <div className="hero-actions">
-            <button className="primary-button" type="button" onClick={() => onNavigate?.("products")}>
+            <button className="primary-button" type="button" onClick={openProductModal}>
               <Boxes size={16} />
               发布商品
             </button>
@@ -246,22 +296,25 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
         <section className="content-grid two-col">
           {canShow("products") && (
             <Card id="merchant-products">
-              <SectionHeader title="商品管理" description="来源：GET /api/v1/merchant/products" action="商品列表" />
+              <SectionHeader title="商品管理" description="来源：GET /api/v1/merchant/products" />
               <Toolbar>
-                <SearchInput placeholder="搜索商品名称 / 类目" />
-                <button className="secondary-button compact" type="button">上架状态</button>
-                <button className="secondary-button compact" type="button">审核状态</button>
+                <input className="search-input" placeholder="搜索商品名称" />
+                <button className="primary-button compact" type="button" onClick={openProductModal}>
+                  <Plus size={14} /> 发布商品
+                </button>
               </Toolbar>
               <DataTable
-                columns={["商品", "类目", "库存", "销量", "状态", "操作"]}
-                rows={products.map((product) => [
-                  <div className="table-product"><img src={product.image} alt="" /><span>{product.name}</span></div>,
-                  product.category,
-                  product.stock,
-                  product.sales,
-                  <StatusTag {...productStatusMap[product.status]} />,
-                  <button className="link-button">{product.status === "AUDITING" ? "查看审核" : "编辑"}</button>
-                ])}
+                columns={["商品", "价格", "库存", "状态", "操作"]}
+                rows={products.length === 0
+                  ? [["", <span className="muted">暂无商品，点击"发布商品"创建</span>, "", "", ""]]
+                  : products.map((product) => [
+                    <div className="table-product">{product.image ? <img src={product.image} alt="" /> : null}<span>{product.name}</span></div>,
+                    <AmountText value={product.price} />,
+                    product.stock,
+                    <StatusTag {...productStatusMap[product.status]} />,
+                    <button className="link-button">{product.status === "AUDITING" ? "审核中" : product.status === "REJECTED" ? "已驳回" : "编辑"}</button>
+                  ])
+                }
               />
             </Card>
           )}
@@ -410,6 +463,59 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
               <button className="primary-button" type="button" onClick={handleEditStaff} disabled={submitLoading}>
                 {submitLoading ? <Loader2 size={16} className="spin" /> : <Plus size={16} />}
                 保存修改
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 发布商品模态框 */}
+      {showProductModal && (
+        <div className="modal-overlay" onClick={() => setShowProductModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{maxWidth: 500}}>
+            <div className="modal-header">
+              <h2><Boxes size={20} /> 发布商品</h2>
+              <button type="button" className="modal-close" onClick={() => setShowProductModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>商品名称 <span className="required">*</span></label>
+                <input placeholder="输入商品名称" value={prodName} onChange={e => { setProdName(e.target.value); setProdError(""); }} disabled={prodSubmitting} />
+              </div>
+              <div className="form-group">
+                <label>类目</label>
+                <select value={prodCategoryId} onChange={e => setProdCategoryId(Number(e.target.value))} disabled={prodSubmitting}>
+                  <option value={0}>请选择类目</option>
+                  {prodCategories.map(c => <option key={c.id} value={c.id}>{c.categoryName}</option>)}
+                </select>
+              </div>
+              <div className="form-row" style={{display:'flex', gap:12}}>
+                <div className="form-group" style={{flex:1}}>
+                  <label>售价 <span className="required">*</span></label>
+                  <input type="number" step="0.01" min="0" placeholder="0.00" value={prodPrice} onChange={e => { setProdPrice(e.target.value); setProdError(""); }} disabled={prodSubmitting} />
+                </div>
+                <div className="form-group" style={{flex:1}}>
+                  <label>库存 <span className="required">*</span></label>
+                  <input type="number" min="0" placeholder="0" value={prodStock} onChange={e => { setProdStock(e.target.value); setProdError(""); }} disabled={prodSubmitting} />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>主图 URL</label>
+                <input placeholder="https://example.com/image.jpg" value={prodImage} onChange={e => setProdImage(e.target.value)} disabled={prodSubmitting} />
+              </div>
+              <div className="form-group">
+                <label>商品描述</label>
+                <textarea rows={3} placeholder="输入商品描述" value={prodDesc} onChange={e => setProdDesc(e.target.value)} disabled={prodSubmitting} style={{padding:'10px 12px', border:'1px solid var(--color-border)', borderRadius:'var(--radius-md)', fontSize:14, outline:'none', resize:'vertical', fontFamily:'inherit'}} />
+              </div>
+              {prodError && <p className="form-error">{prodError}</p>}
+            </div>
+            <div className="modal-footer">
+              <button className="secondary-button" onClick={() => setShowProductModal(false)} disabled={prodSubmitting}>取消</button>
+              <button className="primary-button" onClick={handlePublishProduct} disabled={prodSubmitting}>
+                {prodSubmitting ? <Loader2 size={16} className="spin" /> : <Plus size={16} />}
+                提交审核
               </button>
             </div>
           </div>

@@ -83,11 +83,11 @@ public class MerchantStaffRepository {
         LocalDateTime now = LocalDateTime.now();
         jdbcTemplate.update(
                 "INSERT INTO merchant_staffs (id, merchant_id, user_id, staff_name, role_type, " +
-                "menu_permissions, status, last_login_at, remark, created_at, updated_at) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "menu_permissions, status, remark, created_at, updated_at) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 staff.getId(), staff.getMerchantId(), staff.getUserId(), staff.getStaffName(),
                 staff.getRoleType(), staff.getMenuPermissions(), staff.getStatus(),
-                staff.getLastLoginAt(), staff.getRemark(), now, now);
+                staff.getRemark(), now, now);
     }
 
     /**

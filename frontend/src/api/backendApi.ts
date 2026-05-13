@@ -201,34 +201,28 @@ async function lookupUser(mobile: string): Promise<{ id: string; mobile: string;
 }
 
 /** 创建员工 */
-async function createStaff(request: { mobile: string; staffName: string; roleType: string }): Promise<Staff | null> {
-  try {
-    const resp = await fetch(`${API_BASE_URL}/merchant/staffs`, {
-      method: "POST",
-      headers: headers(),
-      body: JSON.stringify(request),
-    });
-    if (!resp.ok) return null;
-    const body = await resp.json();
-    if (body.code !== "SUCCESS") return null;
-    return body.data as Staff;
-  } catch {
-    return null;
+async function createStaff(request: { mobile: string; staffName: string; roleType: string }): Promise<Staff> {
+  const resp = await fetch(`${API_BASE_URL}/merchant/staffs`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify(request),
+  });
+  const body = await resp.json();
+  if (body.code !== "SUCCESS") {
+    throw new Error(body.message || "添加员工失败");
   }
+  return body.data as Staff;
 }
 
 /** 切换员工启用/禁用状态 */
-async function toggleStaffStatus(staffId: string): Promise<boolean> {
-  try {
-    const resp = await fetch(`${API_BASE_URL}/merchant/staffs/${staffId}/status`, {
-      method: "PUT",
-      headers: headers(),
-    });
-    if (!resp.ok) return false;
-    const body = await resp.json();
-    return body.code === "SUCCESS";
-  } catch {
-    return false;
+async function toggleStaffStatus(staffId: string): Promise<void> {
+  const resp = await fetch(`${API_BASE_URL}/merchant/staffs/${staffId}/status`, {
+    method: "PUT",
+    headers: headers(),
+  });
+  const body = await resp.json();
+  if (body.code !== "SUCCESS") {
+    throw new Error(body.message || "操作失败");
   }
 }
 
@@ -346,12 +340,12 @@ export const api = {
   },
 
   /** 创建员工 */
-  async createStaff(request: { mobile: string; staffName: string; roleType: string }): Promise<Staff | null> {
+  async createStaff(request: { mobile: string; staffName: string; roleType: string }): Promise<Staff> {
     return createStaff(request);
   },
 
   /** 切换员工状态 */
-  async toggleStaffStatus(staffId: string): Promise<boolean> {
+  async toggleStaffStatus(staffId: string): Promise<void> {
     return toggleStaffStatus(staffId);
   },
 

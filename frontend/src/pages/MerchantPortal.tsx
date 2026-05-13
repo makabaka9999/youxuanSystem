@@ -85,12 +85,12 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
     if (!lookupResult || !addStaffName.trim()) return;
     setSubmitLoading(true);
     setStaffError("");
-    const staff = await api.createStaff({
-      mobile: lookupResult.mobile,
-      staffName: addStaffName.trim(),
-      roleType: addRoleType,
-    });
-    if (staff) {
+    try {
+      await api.createStaff({
+        mobile: lookupResult.mobile,
+        staffName: addStaffName.trim(),
+        roleType: addRoleType,
+      });
       setShowAddModal(false);
       setAddMobile("");
       setAddStaffName("");
@@ -98,16 +98,20 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
       setLookupResult(null);
       setLookupError("");
       loadStaff();
-    } else {
-      setStaffError("添加员工失败，请重试");
+    } catch (err) {
+      setStaffError(err instanceof Error ? err.message : "添加员工失败");
     }
     setSubmitLoading(false);
   }, [lookupResult, addStaffName, addRoleType, loadStaff]);
 
   /** 切换员工状态 */
   const handleToggleStatus = useCallback(async (staffId: string) => {
-    const ok = await api.toggleStaffStatus(staffId);
-    if (ok) loadStaff();
+    try {
+      await api.toggleStaffStatus(staffId);
+      loadStaff();
+    } catch {
+      // 静默失败，列表维持原样
+    }
   }, [loadStaff]);
 
   /** 角色类型中文名 */

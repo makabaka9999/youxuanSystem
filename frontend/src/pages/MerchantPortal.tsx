@@ -66,14 +66,22 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
   // ── 发布商品状态 ──
   const [showProductModal, setShowProductModal] = useState(false);
   const [prodName, setProdName] = useState("");
+  const [prodParentId, setProdParentId] = useState<number>(0);
   const [prodCategoryId, setProdCategoryId] = useState<number>(0);
   const [prodPrice, setProdPrice] = useState("");
   const [prodStock, setProdStock] = useState("");
   const [prodImage, setProdImage] = useState("");
   const [prodDesc, setProdDesc] = useState("");
-  const [prodCategories, setProdCategories] = useState<{ id: number; categoryName: string }[]>([]);
+  const [prodCategoryTree, setProdCategoryTree] = useState<any[]>([]);
   const [prodSubmitting, setProdSubmitting] = useState(false);
   const [prodError, setProdError] = useState("");
+
+  /** 根据选中的父类目计算可用子类目 */
+  const prodChildCategories = useMemo(() => {
+    if (!prodParentId) return [];
+    const parent = prodCategoryTree.find(c => c.id === prodParentId);
+    return parent?.children || [];
+  }, [prodParentId, prodCategoryTree]);
 
   /** 分页后的员工列表 */
   const pagedStaff = useMemo(() => {
@@ -201,11 +209,11 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
   const openProductModal = useCallback(async () => {
     setShowProductModal(true);
     setProdError("");
-    if (prodCategories.length === 0) {
-      const cats = await api.fetchCategories();
-      setProdCategories(cats);
+    if (prodCategoryTree.length === 0) {
+      const tree = await api.fetchCategories();
+      setProdCategoryTree(tree);
     }
-  }, [prodCategories.length]);
+  }, [prodCategoryTree.length]);
 
   /** 提交发布商品 */
   const handlePublishProduct = useCallback(async () => {
@@ -484,12 +492,21 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
                 <label>商品名称 <span className="required">*</span></label>
                 <input placeholder="输入商品名称" value={prodName} onChange={e => { setProdName(e.target.value); setProdError(""); }} disabled={prodSubmitting} />
               </div>
-              <div className="form-group">
-                <label>类目</label>
-                <select value={prodCategoryId} onChange={e => setProdCategoryId(Number(e.target.value))} disabled={prodSubmitting}>
-                  <option value={0}>请选择类目</option>
-                  {prodCategories.map(c => <option key={c.id} value={c.id}>{c.categoryName}</option>)}
-                </select>
+              <div className="form-row" style={{display:'flex', gap:12}}>
+                <div className="form-group" style={{flex:1}}>
+                  <label>一级类目</label>
+                  <select value={prodParentId} onChange={e => { setProdParentId(Number(e.target.value)); setProdCategoryId(0); }} disabled={prodSubmitting}>
+                    <option value={0}>请选择类目</option>
+                    {prodCategoryTree.map((c: any) => <option key={c.id} value={c.id}>{c.categoryName}</option>)}
+                  </select>
+                </div>
+                <div className="form-group" style={{flex:1}}>
+                  <label>二级类目</label>
+                  <select value={prodCategoryId} onChange={e => setProdCategoryId(Number(e.target.value))} disabled={prodSubmitting || !prodParentId}>
+                    <option value={0}>请选择子类目</option>
+                    {prodChildCategories.map((c: any) => <option key={c.id} value={c.id}>{c.categoryName}</option>)}
+                  </select>
+                </div>
               </div>
               <div className="form-row" style={{display:'flex', gap:12}}>
                 <div className="form-group" style={{flex:1}}>

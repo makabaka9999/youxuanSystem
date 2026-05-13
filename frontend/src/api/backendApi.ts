@@ -223,20 +223,22 @@ async function createMerchantProduct(request: {
   if (body.code !== "SUCCESS") throw new Error(body.message || "发布商品失败");
 }
 
-/** 获取类目列表 */
-async function fetchCategories(): Promise<{ id: number; categoryName: string }[]> {
+/** 获取类目树 */
+async function fetchCategories(): Promise<{ id: number; parentId: number; categoryName: string; level: number; children: any[] }[]> {
   const data = await safeFetch<any[]>(`${API_BASE_URL}/categories/tree`);
-  if (!data) return [];
-  // 展平树结构
-  const flat: { id: number; categoryName: string }[] = [];
-  const walk = (items: any[]) => {
-    for (const item of items) {
-      flat.push({ id: item.id, categoryName: item.categoryName || "" });
-      if (item.children) walk(item.children);
+  return data || [];
+}
+
+/** 从类目树中查找指定 ID 的类目 */
+function findCategoryInTree(tree: any[], id: number): any {
+  for (const node of tree) {
+    if (node.id === id) return node;
+    if (node.children) {
+      const found = findCategoryInTree(node.children, id);
+      if (found) return found;
     }
-  };
-  walk(data);
-  return flat;
+  }
+  return null;
 }
 
 /** 获取商家员工列表，支持按姓名搜索 */
@@ -435,8 +437,8 @@ export const api = {
     return createMerchantProduct(request);
   },
 
-  /** 获取类目列表 */
-  async fetchCategories(): Promise<{ id: number; categoryName: string }[]> {
+  /** 获取类目树 */
+  async fetchCategories(): Promise<{ id: number; parentId: number; categoryName: string; level: number; children: any[] }[]> {
     return fetchCategories();
   },
 

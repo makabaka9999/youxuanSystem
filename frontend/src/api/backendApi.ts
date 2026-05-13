@@ -229,6 +229,20 @@ async function fetchCategories(): Promise<{ id: number; parentId: number; catego
   return data || [];
 }
 
+/** 上传图片，返回图片 URL */
+async function uploadImage(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const resp = await fetch(`${API_BASE_URL}/merchant/upload/image`, {
+    method: "POST",
+    headers: { "X-Request-Id": crypto.randomUUID() },
+    body: formData,
+  });
+  const body = await resp.json();
+  if (body.code !== "SUCCESS") throw new Error(body.message || "上传失败");
+  return body.data.url;
+}
+
 /** 从类目树中查找指定 ID 的类目 */
 function findCategoryInTree(tree: any[], id: number): any {
   for (const node of tree) {
@@ -440,6 +454,11 @@ export const api = {
   /** 获取类目树 */
   async fetchCategories(): Promise<{ id: number; parentId: number; categoryName: string; level: number; children: any[] }[]> {
     return fetchCategories();
+  },
+
+  /** 上传图片 */
+  async uploadImage(file: File): Promise<string> {
+    return uploadImage(file);
   },
 
   /** 更新员工信息 */

@@ -65,6 +65,11 @@ spring:
           uri: lb://youxuan-admin-service
           predicates:
             - Path=/api/v1/admin/**
+        # 商家服务上传文件
+        - id: youxuan-merchant-uploads
+          uri: lb://youxuan-merchant-service
+          predicates:
+            - Path=/uploads/**
         # Gatway 自身端点（无需转发）
         # - /api/v1/health → GatewayHealthController
         # - /api/v1/gateway/services → ServiceDirectoryController

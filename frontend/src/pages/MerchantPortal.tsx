@@ -75,6 +75,7 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
   const [prodCategoryTree, setProdCategoryTree] = useState<any[]>([]);
   const [prodSubmitting, setProdSubmitting] = useState(false);
   const [prodError, setProdError] = useState("");
+  const [prodImageUploading, setProdImageUploading] = useState(false);
 
   /** 根据选中的父类目计算可用子类目 */
   const prodChildCategories = useMemo(() => {
@@ -215,10 +216,26 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
     }
   }, [prodCategoryTree.length]);
 
+  /** 上传商品图片 */
+  const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setProdImageUploading(true);
+    try {
+      const url = await api.uploadImage(file);
+      setProdImage(url);
+    } catch (err) {
+      setProdError(err instanceof Error ? err.message : "图片上传失败");
+    }
+    setProdImageUploading(false);
+    // 清空 input 值以便重复选择同一文件
+    e.target.value = "";
+  }, []);
+
   /** 提交发布商品 */
   const handlePublishProduct = useCallback(async () => {
-    if (!prodName.trim() || !prodPrice.trim() || !prodStock.trim()) {
-      setProdError("请填写商品名称、价格和库存");
+    if (!prodName.trim() || !prodPrice.trim() || !prodStock.trim() || !prodCategoryId) {
+      setProdError("请填写商品名称、类目、价格和库存");
       return;
     }
     setProdSubmitting(true);
@@ -494,7 +511,7 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
               </div>
               <div className="form-row" style={{display:'flex', gap:12}}>
                 <div className="form-group" style={{flex:1}}>
-                  <label>一级类目</label>
+                  <label>一级类目 <span className="required">*</span></label>
                   <select value={prodParentId} onChange={e => { setProdParentId(Number(e.target.value)); setProdCategoryId(0); }} disabled={prodSubmitting}>
                     <option value={0}>请选择类目</option>
                     {prodCategoryTree.map((c: any) => <option key={c.id} value={c.id}>{c.categoryName}</option>)}
@@ -519,8 +536,22 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
                 </div>
               </div>
               <div className="form-group">
-                <label>主图 URL</label>
-                <input placeholder="https://example.com/image.jpg" value={prodImage} onChange={e => setProdImage(e.target.value)} disabled={prodSubmitting} />
+                <label>主图</label>
+                <div className="upload-area">
+                  {prodImage ? (
+                    <div className="upload-preview">
+                      <img src={prodImage} alt="商品主图" />
+                      <button type="button" className="upload-remove" onClick={() => setProdImage("")} disabled={prodSubmitting}>删除</button>
+                    </div>
+                  ) : (
+                    <label className={`upload-btn ${prodImageUploading ? "uploading" : ""}`}>
+                      <input type="file" accept="image/*" onChange={handleImageUpload} hidden disabled={prodSubmitting || prodImageUploading} />
+                      {prodImageUploading ? <Loader2 size={18} className="spin" /> : <Plus size={18} />}
+                      {prodImageUploading ? "上传中..." : "选择图片"}
+                    </label>
+                  )}
+                </div>
+                {prodImage && <span className="upload-hint">{prodImage}</span>}
               </div>
               <div className="form-group">
                 <label>商品描述</label>

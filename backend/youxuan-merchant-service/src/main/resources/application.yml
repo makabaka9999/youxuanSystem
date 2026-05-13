@@ -22,6 +22,13 @@ spring:
   jackson:
     time-zone: Asia/Shanghai
     date-format: yyyy-MM-dd HH:mm:ss.SSS
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 20MB
+  web:
+    resources:
+      static-locations: file:./uploads/
 
 # 启用 JWT 认证过滤链，签名密钥必须与 auth-service 的 youxuan.auth.security.secret 一致
 youxuan:

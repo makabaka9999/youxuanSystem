@@ -2672,6 +2672,15 @@ tbody tr:hover {
 
 .required { color: var(--color-danger); margin-left: 2px; }
 
+.upload-area { display: flex; gap: 12px; align-items: center; }
+.upload-preview { position: relative; display: inline-block; }
+.upload-preview img { width: 100px; height: 100px; object-fit: cover; border-radius: var(--radius-md); border: 1px solid var(--color-border); }
+.upload-remove { position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.6); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 11px; padding: 2px 6px; cursor: pointer; }
+.upload-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 100px; min-width: 100px; border: 2px dashed var(--color-border); border-radius: var(--radius-md); justify-content: center; cursor: pointer; font-size: 13px; color: var(--color-text-muted); transition: all var(--transition-fast); }
+.upload-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.upload-btn.uploading { opacity: 0.6; cursor: not-allowed; }
+.upload-hint { font-size: 11px; color: var(--color-text-muted); word-break: break-all; }
+
 .primary-button.compact {
   min-height: 36px;
   font-size: 13px;

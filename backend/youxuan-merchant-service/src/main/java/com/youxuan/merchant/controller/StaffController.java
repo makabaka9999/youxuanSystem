@@ -36,7 +36,7 @@ public class StaffController {
     /** 校验当前用户是否有管理员权限（员工管理仅 ADMIN 可用） */
     private void requireAdmin() {
         String roleType = JwtRequestContext.get().getRoleType();
-        if (!"ADMIN".equals(roleType)) {
+        if (!"ADMIN".equals(roleType) && !"OWNER".equals(roleType)) {
             throw new BizException(ErrorCode.PERMISSION_DENIED, "仅管理员可管理员工");
         }
     }

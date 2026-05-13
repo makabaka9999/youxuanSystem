@@ -62,7 +62,7 @@ function portalFromAuth(auth: AuthState): Portal {
 /** 根据商家员工角色类型过滤导航项 */
 function filterMerchantNav(roleType: string | undefined) {
   const allNav = portalMeta.merchant.nav;
-  if (roleType === "ADMIN") return allNav;
+  if (roleType === "ADMIN" || roleType === "OWNER") return allNav;
   if (roleType === "CUSTOMER_SERVICE") {
     return allNav.filter(n => ["dashboard", "after-sales"].includes(n.id));
   }

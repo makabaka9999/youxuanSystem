@@ -95,6 +95,19 @@ public class MerchantStaffRepository {
     }
 
     /**
+     * 更新员工信息。
+     *
+     * @param id        员工 ID
+     * @param staffName 员工姓名
+     * @param roleType  角色类型
+     */
+    public void update(Long id, String staffName, String roleType) {
+        jdbcTemplate.update(
+                "UPDATE merchant_staffs SET staff_name = ?, role_type = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL",
+                staffName, roleType, LocalDateTime.now(), id);
+    }
+
+    /**
      * 更新员工状态（启用/禁用）。
      *
      * @param id     员工 ID

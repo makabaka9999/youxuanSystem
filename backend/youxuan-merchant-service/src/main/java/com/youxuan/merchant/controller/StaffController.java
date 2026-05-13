@@ -5,6 +5,7 @@ import com.youxuan.common.api.ErrorCode;
 import com.youxuan.common.security.JwtRequestContext;
 import com.youxuan.common.web.RequestContext;
 import com.youxuan.merchant.dto.CreateStaffRequest;
+import com.youxuan.merchant.dto.UpdateStaffRequest;
 import com.youxuan.merchant.model.MerchantStaffDO;
 import com.youxuan.merchant.service.MerchantStaffService;
 import java.util.List;
@@ -70,6 +71,20 @@ public class StaffController {
         Long merchantId = JwtRequestContext.get().getMerchantId();
         MerchantStaffDO staff = staffService.createStaff(merchantId, request);
         return ApiResponse.success(staff, RequestContext.getRequestId());
+    }
+
+    /**
+     * 更新员工信息。
+     *
+     * @param staffId 员工 ID
+     * @param request 更新信息
+     * @return 操作结果
+     */
+    @PutMapping("/{staffId}")
+    public ApiResponse<Void> updateStaff(@PathVariable Long staffId, @RequestBody UpdateStaffRequest request) {
+        Long merchantId = JwtRequestContext.get().getMerchantId();
+        staffService.updateStaff(merchantId, staffId, request);
+        return ApiResponse.success(null, RequestContext.getRequestId());
     }
 
     /**

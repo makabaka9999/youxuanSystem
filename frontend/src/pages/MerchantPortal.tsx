@@ -56,6 +56,10 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
   const [lookupError, setLookupError] = useState("");
   const [submitLoading, setSubmitLoading] = useState(false);
   const [staffError, setStaffError] = useState("");
+  // ── 编辑员工状态 ──
+  const [editStaff, setEditStaff] = useState<Staff | null>(null);
+  const [editStaffName, setEditStaffName] = useState("");
+  const [editRoleTypes, setEditRoleTypes] = useState<string[]>([]);
 
   /** 分页后的员工列表 */
   const pagedStaff = useMemo(() => {
@@ -141,6 +145,33 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
     }
     setSubmitLoading(false);
   }, [lookupResult, addStaffName, addRoleTypes, loadStaff]);
+
+  /** 打开编辑弹窗 */
+  const openEdit = useCallback((staff: Staff) => {
+    setEditStaff(staff);
+    setEditStaffName(staff.staffName);
+    setEditRoleTypes((staff.roleType || "").split(",").map(r => r.trim()).filter(Boolean));
+    setStaffError("");
+  }, []);
+
+  /** 提交编辑员工 */
+  const handleEditStaff = useCallback(async () => {
+    if (!editStaff || !editStaffName.trim()) return;
+    if (editRoleTypes.length === 0) { setStaffError("请至少选择一个角色"); return; }
+    setSubmitLoading(true);
+    setStaffError("");
+    try {
+      await api.updateStaff(editStaff.id, {
+        staffName: editStaffName.trim(),
+        roleType: editRoleTypes.join(","),
+      });
+      setEditStaff(null);
+      loadStaff();
+    } catch (err) {
+      setStaffError(err instanceof Error ? err.message : "更新失败");
+    }
+    setSubmitLoading(false);
+  }, [editStaff, editStaffName, editRoleTypes, loadStaff]);
 
   /** 切换员工状态 */
   const handleToggleStatus = useCallback(async (staffId: string) => {
@@ -315,9 +346,12 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
                 ))}
               </div>,
               <StatusTag tone={staff.status === "ENABLED" ? "success" : "neutral"} label={staff.status === "ENABLED" ? "正常" : "停用"} />,
-              <button className="link-button" onClick={() => handleToggleStatus(staff.id)}>
-                {staff.status === "ENABLED" ? "停用" : "启用"}
-              </button>
+              <div className="action-buttons">
+                <button className="link-button" onClick={() => openEdit(staff)}>修改</button>
+                <button className="link-button" onClick={() => handleToggleStatus(staff.id)}>
+                  {staff.status === "ENABLED" ? "停用" : "启用"}
+                </button>
+              </div>
             ])}
           />
         )}
@@ -329,6 +363,45 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
           </div>
         )}
       </Card>
+
+      {/* 编辑员工模态框 */}
+      {editStaff && (
+        <div className="modal-overlay" onClick={() => setEditStaff(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2><UserPlus size={20} /> 修改员工</h2>
+              <button type="button" className="modal-close" onClick={() => setEditStaff(null)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>员工姓名</label>
+                <input type="text" placeholder="输入员工姓名" value={editStaffName} onChange={e => setEditStaffName(e.target.value)} disabled={submitLoading} />
+              </div>
+              <div className="form-group">
+                <label>角色类型（可多选）</label>
+                <div className="role-checkboxes">
+                  {roleOptions.map(opt => (
+                    <label key={opt.value} className="role-checkbox">
+                      <input type="checkbox" checked={editRoleTypes.includes(opt.value)} onChange={() => setEditRoleTypes(prev => prev.includes(opt.value) ? prev.filter(r => r !== opt.value) : [...prev, opt.value])} disabled={submitLoading} />
+                      <span>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              {staffError && <p className="form-error">{staffError}</p>}
+            </div>
+            <div className="modal-footer">
+              <button className="secondary-button" type="button" onClick={() => setEditStaff(null)} disabled={submitLoading}>取消</button>
+              <button className="primary-button" type="button" onClick={handleEditStaff} disabled={submitLoading}>
+                {submitLoading ? <Loader2 size={16} className="spin" /> : <Plus size={16} />}
+                保存修改
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 添加员工模态框 */}
       {showAddModal && (

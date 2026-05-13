@@ -4,6 +4,7 @@ import com.youxuan.common.api.ErrorCode;
 import com.youxuan.common.exception.BizException;
 import com.youxuan.common.id.IdGenerator;
 import com.youxuan.merchant.dto.CreateStaffRequest;
+import com.youxuan.merchant.dto.UpdateStaffRequest;
 import com.youxuan.merchant.model.MerchantStaffDO;
 import com.youxuan.merchant.repository.MerchantStaffRepository;
 import java.util.HashMap;
@@ -104,6 +105,23 @@ public class MerchantStaffService {
                 idGenerator.nextId(), staff.getId(), MERCHANT_STAFF_ROLE_ID);
 
         return staff;
+    }
+
+    /**
+     * 更新员工信息。
+     *
+     * @param merchantId 商家 ID
+     * @param staffId    员工 ID
+     * @param request    更新信息
+     */
+    @Transactional
+    public void updateStaff(Long merchantId, Long staffId, UpdateStaffRequest request) {
+        List<MerchantStaffDO> allStaff = staffRepository.findByMerchantId(merchantId, null);
+        allStaff.stream()
+                .filter(s -> s.getId().equals(staffId))
+                .findFirst()
+                .orElseThrow(() -> new BizException(ErrorCode.RESOURCE_NOT_FOUND, "员工不存在"));
+        staffRepository.update(staffId, request.getStaffName(), request.getRoleType());
     }
 
     /**

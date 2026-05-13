@@ -225,6 +225,19 @@ async function createStaff(request: { mobile: string; staffName: string; roleTyp
   return body.data as Staff;
 }
 
+/** 更新员工信息 */
+async function updateStaff(staffId: string, request: { staffName: string; roleType: string }): Promise<void> {
+  const resp = await fetch(`${API_BASE_URL}/merchant/staffs/${staffId}`, {
+    method: "PUT",
+    headers: headers(),
+    body: JSON.stringify(request),
+  });
+  const body = await resp.json();
+  if (body.code !== "SUCCESS") {
+    throw new Error(body.message || "更新失败");
+  }
+}
+
 /** 切换员工启用/禁用状态 */
 async function toggleStaffStatus(staffId: string): Promise<void> {
   const resp = await fetch(`${API_BASE_URL}/merchant/staffs/${staffId}/status`, {
@@ -353,6 +366,11 @@ export const api = {
   /** 创建员工 */
   async createStaff(request: { mobile: string; staffName: string; roleType: string }): Promise<Staff> {
     return createStaff(request);
+  },
+
+  /** 更新员工信息 */
+  async updateStaff(staffId: string, request: { staffName: string; roleType: string }): Promise<void> {
+    return updateStaff(staffId, request);
   },
 
   /** 切换员工状态 */

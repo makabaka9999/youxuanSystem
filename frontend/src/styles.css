@@ -2610,7 +2610,59 @@ tbody tr:hover {
 }
 
 .staff-toolbar {
+  display: flex;
+  gap: 10px;
   margin-bottom: 14px;
+  align-items: center;
+}
+
+.staff-search {
+  flex: 1;
+}
+
+.staff-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.role-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.role-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  background: #EDE9FE;
+  color: #5B21B6;
+}
+
+.role-checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.role-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--color-text);
+  padding: 6px 0;
+}
+
+.role-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
 }
 
 .primary-button.compact {

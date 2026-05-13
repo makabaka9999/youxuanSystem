@@ -8,7 +8,7 @@
  * - 账单与结算提现
  * - 员工管理（RBAC 角色关联）
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Banknote,
   Boxes,
@@ -44,15 +44,23 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
   // ── 员工管理状态 ──
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [staffLoading, setStaffLoading] = useState(false);
+  const [staffSearch, setStaffSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [addMobile, setAddMobile] = useState("");
   const [addStaffName, setAddStaffName] = useState("");
-  const [addRoleType, setAddRoleType] = useState("OPERATOR");
+  const [addRoleTypes, setAddRoleTypes] = useState<string[]>(["OPERATOR"]);
   const [lookupResult, setLookupResult] = useState<{ id: string; mobile: string; nickname: string } | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState("");
   const [submitLoading, setSubmitLoading] = useState(false);
   const [staffError, setStaffError] = useState("");
+
+  /** 搜索过滤后的员工列表 */
+  const filteredStaff = useMemo(() => {
+    if (!staffSearch.trim()) return staffList;
+    const q = staffSearch.trim().toLowerCase();
+    return staffList.filter(s => s.staffName.toLowerCase().includes(q));
+  }, [staffList, staffSearch]);
 
   /** 加载员工列表 */
   const loadStaff = useCallback(async () => {
@@ -63,6 +71,13 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
   }, []);
 
   useEffect(() => { loadStaff(); }, [loadStaff]);
+
+  /** 多选角色切换 */
+  const toggleRole = useCallback((role: string) => {
+    setAddRoleTypes(prev =>
+      prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]
+    );
+  }, []);
 
   /** 手机号查找用户 */
   const handleLookup = useCallback(async () => {
@@ -83,18 +98,19 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
   /** 提交添加员工 */
   const handleAddStaff = useCallback(async () => {
     if (!lookupResult || !addStaffName.trim()) return;
+    if (addRoleTypes.length === 0) { setStaffError("请至少选择一个角色"); return; }
     setSubmitLoading(true);
     setStaffError("");
     try {
       await api.createStaff({
         mobile: lookupResult.mobile,
         staffName: addStaffName.trim(),
-        roleType: addRoleType,
+        roleType: addRoleTypes.join(","),
       });
       setShowAddModal(false);
       setAddMobile("");
       setAddStaffName("");
-      setAddRoleType("OPERATOR");
+      setAddRoleTypes(["OPERATOR"]);
       setLookupResult(null);
       setLookupError("");
       loadStaff();
@@ -102,7 +118,7 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
       setStaffError(err instanceof Error ? err.message : "添加员工失败");
     }
     setSubmitLoading(false);
-  }, [lookupResult, addStaffName, addRoleType, loadStaff]);
+  }, [lookupResult, addStaffName, addRoleTypes, loadStaff]);
 
   /** 切换员工状态 */
   const handleToggleStatus = useCallback(async (staffId: string) => {
@@ -120,6 +136,13 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
     OPERATOR: "运营",
     CUSTOMER_SERVICE: "客服",
   };
+
+  /** 可选角色列表 */
+  const roleOptions = [
+    { value: "ADMIN", label: "管理员 — 全部菜单权限" },
+    { value: "OPERATOR", label: "运营 — 商品/订单/售后" },
+    { value: "CUSTOMER_SERVICE", label: "客服 — 售后处理" },
+  ];
 
   return (
     <div className="portal-page merchant-page">
@@ -241,6 +264,15 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
           description="可添加、启用/停用商家员工，员工登录后按 RBAC 角色获取权限"
         />
         <div className="staff-toolbar">
+          <div className="staff-search">
+            <input
+              type="text"
+              className="search-input"
+              placeholder="搜索员工姓名..."
+              value={staffSearch}
+              onChange={e => setStaffSearch(e.target.value)}
+            />
+          </div>
           <button className="primary-button compact" type="button" onClick={() => setShowAddModal(true)}>
             <UserPlus size={16} />
             添加员工
@@ -248,24 +280,23 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
         </div>
         {staffLoading ? (
           <div className="loading-inline"><Loader2 size={18} className="spin" /> 加载中...</div>
-        ) : staffList.length === 0 ? (
-          <div className="empty-state">暂无员工，点击"添加员工"按钮添加</div>
+        ) : filteredStaff.length === 0 ? (
+          <div className="empty-state">{staffSearch ? "未找到匹配的员工" : '暂无员工，点击"添加员工"按钮添加'}</div>
         ) : (
           <DataTable
-            columns={["姓名", "手机号", "角色", "状态", "操作"]}
-            rows={staffList.map((staff) => {
-              // 从备注字段拿手机号（暂无关联查询，后续优化）
-              const staffWithMobile = staffList.find(s => s.id === staff.id);
-              return [
-                staff.staffName,
-                <span className="mono">{staff.userId ? `#${staff.userId}` : "-"}</span>,
-                roleTypeLabel[staff.roleType] || staff.roleType,
-                <StatusTag tone={staff.status === "ENABLED" ? "success" : "neutral"} label={staff.status === "ENABLED" ? "正常" : "停用"} />,
-                <button className="link-button" onClick={() => handleToggleStatus(staff.id)}>
-                  {staff.status === "ENABLED" ? "停用" : "启用"}
-                </button>
-              ];
-            })}
+            columns={["姓名", "角色", "状态", "操作"]}
+            rows={filteredStaff.map((staff) => [
+              <div><div className="staff-name">{staff.staffName}</div></div>,
+              <div className="role-tags">
+                {((staff.roleType || "").split(",")).map(r => r.trim()).filter(Boolean).map(r => (
+                  <span key={r} className="role-tag">{roleTypeLabel[r] || r}</span>
+                ))}
+              </div>,
+              <StatusTag tone={staff.status === "ENABLED" ? "success" : "neutral"} label={staff.status === "ENABLED" ? "正常" : "停用"} />,
+              <button className="link-button" onClick={() => handleToggleStatus(staff.id)}>
+                {staff.status === "ENABLED" ? "停用" : "启用"}
+              </button>
+            ])}
           />
         )}
       </Card>
@@ -319,12 +350,20 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
               </div>
 
               <div className="form-group">
-                <label>角色类型</label>
-                <select value={addRoleType} onChange={e => setAddRoleType(e.target.value)} disabled={submitLoading}>
-                  <option value="ADMIN">管理员 — 全部菜单权限</option>
-                  <option value="OPERATOR">运营 — 商品/订单/售后</option>
-                  <option value="CUSTOMER_SERVICE">客服 — 售后处理</option>
-                </select>
+                <label>角色类型（可多选）</label>
+                <div className="role-checkboxes">
+                  {roleOptions.map(opt => (
+                    <label key={opt.value} className="role-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={addRoleTypes.includes(opt.value)}
+                        onChange={() => toggleRole(opt.value)}
+                        disabled={submitLoading}
+                      />
+                      <span>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
 
               {staffError && <p className="form-error">{staffError}</p>}

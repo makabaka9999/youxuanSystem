@@ -65,7 +65,7 @@ function loadAuth(): AuthState | null {
 function portalFromAuth(auth: AuthState): Portal {
   const type = auth.currentPrincipal?.principalType;
   if (type === "USER") return "user";
-  if (type === "MERCHANT_OWNER") return "merchant";
+  if (type === "MERCHANT_STAFF") return "merchant";
   return "admin";
 }
 
@@ -87,7 +87,7 @@ const portalMeta = {
   merchant: {
     title: "商家端",
     subtitle: "店铺经营工作台",
-    role: "MERCHANT_OWNER",
+    role: "MERCHANT_STAFF",
     nav: [
       { id: "dashboard", label: "工作台", icon: LayoutDashboard },
       { id: "store", label: "店铺", icon: Store },

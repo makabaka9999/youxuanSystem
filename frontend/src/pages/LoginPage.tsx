@@ -26,12 +26,12 @@ type LoginPageProps = {
 };
 
 /** 可选登录门户类型 */
-type PortalType = "USER" | "MERCHANT_OWNER" | "PLATFORM_ADMIN";
+type PortalType = "USER" | "MERCHANT_STAFF" | "PLATFORM_ADMIN";
 
 /** 门户选择器配置：类型、显示文字、对应图标 */
 const portalOptions: { type: PortalType; label: string; Icon: typeof UserRound }[] = [
   { type: "USER", label: "用户端", Icon: UserRound },
-  { type: "MERCHANT_OWNER", label: "商家端", Icon: Store },
+  { type: "MERCHANT_STAFF", label: "商家端", Icon: Store },
   { type: "PLATFORM_ADMIN", label: "平台后台", Icon: ShieldCheck },
 ];
 

@@ -50,6 +50,10 @@ public class AuthAccountRepository {
         if (principalTypeEnum == PrincipalTypeEnum.PLATFORM_ADMIN) {
             return findPlatformAdmin(account);
         }
+        // 商家员工走商家员工查询（联表查询 users + merchant_staffs）
+        if (principalTypeEnum == PrincipalTypeEnum.MERCHANT_STAFF) {
+            return findMerchantStaff(account);
+        }
         // 普通用户走用户表查询
         return findUser(account);
     }
@@ -64,6 +68,21 @@ public class AuthAccountRepository {
         List<AuthAccountDO> accountList = jdbcTemplate.query(
                 "SELECT id, mobile, password_hash, nickname, status FROM users WHERE mobile = ? AND deleted_at IS NULL",
                 (resultSet, rowNum) -> mapUser(resultSet),
+                mobile);
+        return accountList.stream().findFirst().map(this::fillAuthority);
+    }
+
+    /**
+     * 根据手机号查询商家员工账号信息。
+     * 联表查询 users + merchant_staffs 获取商家上下文。
+     */
+    private Optional<AuthAccountDO> findMerchantStaff(String mobile) {
+        List<AuthAccountDO> accountList = jdbcTemplate.query(
+                "SELECT u.id AS user_id, u.mobile, u.password_hash, " +
+                "ms.id AS staff_id, ms.merchant_id, ms.staff_name, ms.status " +
+                "FROM users u JOIN merchant_staffs ms ON ms.user_id = u.id AND ms.deleted_at IS NULL " +
+                "WHERE u.mobile = ? AND u.deleted_at IS NULL",
+                (resultSet, rowNum) -> mapMerchantStaff(resultSet),
                 mobile);
         return accountList.stream().findFirst().map(this::fillAuthority);
     }
@@ -135,6 +154,22 @@ public class AuthAccountRepository {
     }
 
     /**
+     * 将 ResultSet 映射为商家员工的账号数据对象。
+     */
+    private AuthAccountDO mapMerchantStaff(ResultSet resultSet) throws SQLException {
+        AuthAccountDO authAccountDO = new AuthAccountDO();
+        authAccountDO.setPrincipalId(resultSet.getLong("staff_id"));
+        authAccountDO.setPrincipalType(PrincipalTypeEnum.MERCHANT_STAFF);
+        authAccountDO.setUserId(resultSet.getLong("user_id"));
+        authAccountDO.setMerchantId(resultSet.getLong("merchant_id"));
+        authAccountDO.setAccount(resultSet.getString("mobile"));
+        authAccountDO.setPasswordHash(resultSet.getString("password_hash"));
+        authAccountDO.setDisplayName(resultSet.getString("staff_name"));
+        authAccountDO.setStatus(resultSet.getString("status"));
+        return authAccountDO;
+    }
+
+    /**
      * 将 ResultSet 映射为平台管理员的账号数据对象。
      *
      * @param resultSet 数据库查询结果集
@@ -145,6 +180,7 @@ public class AuthAccountRepository {
         AuthAccountDO authAccountDO = new AuthAccountDO();
         authAccountDO.setPrincipalId(resultSet.getLong("id"));
         authAccountDO.setPrincipalType(PrincipalTypeEnum.PLATFORM_ADMIN);
+        authAccountDO.setUserId(resultSet.getLong("id"));
         authAccountDO.setAccount(resultSet.getString("username"));
         authAccountDO.setPasswordHash(resultSet.getString("password_hash"));
         authAccountDO.setDisplayName(resultSet.getString("display_name"));

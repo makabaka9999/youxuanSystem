@@ -531,6 +531,20 @@ export const api = {
     return createMerchantProduct(request);
   },
 
+  /** 编辑商品 */
+  async updateMerchantProduct(productId: string, request: {
+    productName: string; categoryId: number; price: string; stockTotal: number; mainImageUrl: string; detailHtml: string;
+  }): Promise<void> {
+    const resp = await fetch(`${API_BASE_URL}/merchant/products/${productId}`, {
+      method: "PUT",
+      headers: headers(),
+      body: JSON.stringify(request)
+    });
+    if (!resp.ok) throw new Error("编辑请求失败");
+    const body = await resp.json();
+    if (body.code !== "SUCCESS") throw new Error(body.message || "编辑商品失败");
+  },
+
   /** 获取类目树 */
   async fetchCategories(): Promise<{ id: number; parentId: number; categoryName: string; level: number; children: any[] }[]> {
     return fetchCategories();

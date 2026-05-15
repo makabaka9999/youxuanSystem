@@ -168,6 +168,18 @@ public class ProductRepository {
         return count != null ? count : 0L;
     }
 
+    /**
+     * 更新商品信息。
+     */
+    public void updateProduct(ProductDO product) {
+        jdbcTemplate.update(
+                "UPDATE products SET category_id = ?, product_name = ?, main_image_url = ?, detail_html = ?, " +
+                "price = ?, stock_total = ?, remark = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL",
+                product.getCategoryId(), product.getProductName(), product.getMainImageUrl(),
+                product.getDetailHtml(), product.getPrice(), product.getStockTotal(),
+                product.getRemark(), product.getId());
+    }
+
     private RowMapper<ProductDO> productRowMapper() {
         return (rs, rowNum) -> {
             ProductDO p = new ProductDO();

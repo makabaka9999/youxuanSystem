@@ -15,6 +15,7 @@ import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -124,6 +125,20 @@ public class MerchantController {
     public ApiResponse<Void> offSale(@PathVariable Long productId) {
         Long merchantId = JwtRequestContext.get().getMerchantId();
         merchantProductService.offSale(merchantId, productId);
+        return ApiResponse.success(null, RequestContext.getRequestId());
+    }
+
+    /**
+     * 编辑商品信息。
+     *
+     * @param productId 商品 ID
+     * @param request   商品信息
+     * @return 操作结果
+     */
+    @PutMapping("/merchant/products/{productId}")
+    public ApiResponse<Void> updateProduct(@PathVariable Long productId, @RequestBody CreateProductRequest request) {
+        Long merchantId = JwtRequestContext.get().getMerchantId();
+        merchantProductService.updateProduct(merchantId, productId, request);
         return ApiResponse.success(null, RequestContext.getRequestId());
     }
 }

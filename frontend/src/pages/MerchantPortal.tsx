@@ -77,7 +77,8 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
   const [editStaffName, setEditStaffName] = useState("");
   const [editRoleTypes, setEditRoleTypes] = useState<string[]>([]);
 
-  // ── 发布商品状态 ──
+  // ── 发布/编辑商品状态 ──
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showProductModal, setShowProductModal] = useState(false);
   const [prodName, setProdName] = useState("");
   const [prodParentId, setProdParentId] = useState<number>(0);
@@ -297,7 +298,15 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
     }
   }, []);
 
-  const openProductModal = useCallback(() => {
+  const openProductModal = useCallback((product?: Product) => {
+    setEditingProduct(product ?? null);
+    setProdName(product?.name ?? "");
+    setProdCategoryId(product ? Number(product.category) || 0 : 0);
+    setProdPrice(product?.price ?? "");
+    setProdStock(product ? String(product.stock) : "");
+    setProdImage(product?.image ?? "");
+    setProdDesc("");
+    setProdImagePreview("");
     setShowProductModal(true);
     setProdError("");
     setProdCategoryError("");
@@ -348,7 +357,7 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
     clearImagePreview();
   }, [clearImagePreview]);
 
-  /** 提交发布商品 */
+  /** 提交发布 / 编辑商品 */
   const handlePublishProduct = useCallback(async () => {
     if (!prodName.trim() || !prodPrice.trim() || !prodStock.trim() || !prodCategoryId) {
       setProdError("请填写商品名称、类目、价格和库存");
@@ -357,27 +366,33 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
     setProdSubmitting(true);
     setProdError("");
     try {
-      await api.createMerchantProduct({
+      const body = {
         productName: prodName.trim(),
         categoryId: prodCategoryId,
         price: prodPrice.trim(),
         stockTotal: parseInt(prodStock, 10) || 0,
         mainImageUrl: prodImage.trim(),
         detailHtml: prodDesc.trim(),
-      });
+      };
+      if (editingProduct) {
+        await api.updateMerchantProduct(editingProduct.id, body);
+      } else {
+        await api.createMerchantProduct(body);
+      }
       const freshResult = await api.fetchMerchantProducts();
       setDisplayProducts(freshResult.items);
       setProductTotal(freshResult.total);
       setProductPage(1);
       setMerchantAuditingMetric(freshResult.items);
       setShowProductModal(false);
+      setEditingProduct(null);
       setProdName(""); setProdCategoryId(0); setProdPrice(""); setProdStock("");
       setProdImage(""); clearImagePreview(); setProdDesc("");
     } catch (err) {
-      setProdError(err instanceof Error ? err.message : "发布商品失败");
+      setProdError(err instanceof Error ? err.message : (editingProduct ? "编辑商品失败" : "发布商品失败"));
     }
     setProdSubmitting(false);
-  }, [prodName, prodCategoryId, prodPrice, prodStock, prodImage, prodDesc, clearImagePreview, setMerchantAuditingMetric]);
+  }, [editingProduct, prodName, prodCategoryId, prodPrice, prodStock, prodImage, prodDesc, clearImagePreview, setMerchantAuditingMetric]);
 
   /** 判断区域是否可见 */
   const canShow = useCallback((section: string) => {
@@ -407,7 +422,7 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
           <h1>商品、履约、售后、资金都围绕店铺工作台展开</h1>
           <p>冻结状态下仍保留已支付订单履约能力，财务动作和员工权限独立管控。</p>
           <div className="hero-actions">
-            <button className="primary-button" type="button" onClick={openProductModal}>
+            <button className="primary-button" type="button" onClick={() => openProductModal()}>
               <Boxes size={16} />
               发布商品
             </button>
@@ -486,9 +501,9 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
                     product.stock,
                     <StatusTag {...productStatusMap[product.status]} />,
                     (product.status === "AUDITING" ? <span className="muted" style={{fontSize:13}}>审核中</span>
-                    : product.status === "REJECTED" ? <span className="muted" style={{fontSize:13}}>已驳回</span>
-                    : product.status === "APPROVED" ? <button className="link-button" onClick={() => handleToggleSale(product, true)}><span className="status-dot success" />上架</button>
-                    : product.status === "ON_SALE" ? <button className="link-button" onClick={() => handleToggleSale(product, false)}>下架</button>
+                    : product.status === "REJECTED" ? <button className="link-button" onClick={() => openProductModal(product)}>编辑</button>
+                    : product.status === "APPROVED" ? <div style={{display:'flex', gap:6}}><button className="link-button" onClick={() => handleToggleSale(product, true)}><span className="status-dot success" />上架</button><button className="link-button" onClick={() => openProductModal(product)}>编辑</button></div>
+                    : product.status === "ON_SALE" ? <div style={{display:'flex', gap:6}}><button className="link-button" onClick={() => handleToggleSale(product, false)}>下架</button><button className="link-button" onClick={() => openProductModal(product)}>编辑</button></div>
                     : null)
                   ])
                 }
@@ -658,11 +673,11 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
 
       {/* 发布商品模态框 */}
       {showProductModal && (
-        <div className="modal-overlay" onClick={() => setShowProductModal(false)}>
+        <div className="modal-overlay" onClick={() => { setShowProductModal(false); setEditingProduct(null); }}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{maxWidth: 500}}>
             <div className="modal-header">
-              <h2><Boxes size={20} /> 发布商品</h2>
-              <button type="button" className="modal-close" onClick={() => setShowProductModal(false)}>
+              <h2><Boxes size={20} /> {editingProduct ? "编辑商品" : "发布商品"}</h2>
+              <button type="button" className="modal-close" onClick={() => { setShowProductModal(false); setEditingProduct(null); }}>
                 <X size={20} />
               </button>
             </div>
@@ -730,10 +745,10 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
               {prodError && <p className="form-error">{prodError}</p>}
             </div>
             <div className="modal-footer">
-              <button className="secondary-button" onClick={() => setShowProductModal(false)} disabled={prodSubmitting}>取消</button>
+              <button className="secondary-button" onClick={() => { setShowProductModal(false); setEditingProduct(null); }} disabled={prodSubmitting}>取消</button>
               <button className="primary-button" onClick={handlePublishProduct} disabled={prodSubmitting || !prodName.trim() || !prodCategoryId || !prodPrice.trim() || !prodStock.trim()}>
                 {prodSubmitting ? <Loader2 size={16} className="spin" /> : <Plus size={16} />}
-                提交审核
+                {editingProduct ? "保存修改" : "提交审核"}
               </button>
             </div>
           </div>

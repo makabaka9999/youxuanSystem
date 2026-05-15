@@ -131,4 +131,30 @@ public class MerchantProductService {
         }
         productRepository.updateSaleStatus(productId, "OFF_SALE");
     }
+
+    /**
+     * 编辑商品信息。
+     *
+     * @param merchantId 商家 ID
+     * @param productId  商品 ID
+     * @param request    更新信息
+     */
+    @Transactional
+    public void updateProduct(Long merchantId, Long productId, CreateProductRequest request) {
+        ProductDO product = productRepository.findById(productId);
+        if (product == null) {
+            throw new BizException(ErrorCode.RESOURCE_NOT_FOUND, "商品不存在");
+        }
+        if (!product.getMerchantId().equals(merchantId)) {
+            throw new BizException(ErrorCode.PERMISSION_DENIED, "无权操作该商品");
+        }
+        product.setCategoryId(request.getCategoryId());
+        product.setProductName(request.getProductName());
+        product.setMainImageUrl(request.getMainImageUrl());
+        product.setDetailHtml(request.getDetailHtml());
+        product.setPrice(request.getPrice());
+        product.setStockTotal(request.getStockTotal());
+        product.setRemark(request.getRemark());
+        productRepository.updateProduct(product);
+    }
 }

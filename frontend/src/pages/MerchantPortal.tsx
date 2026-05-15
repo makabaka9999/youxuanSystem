@@ -427,34 +427,40 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
           {canShow("products") && (
             <Card id="merchant-products">
               <SectionHeader title="商品管理" description="来源：GET /api/v1/merchant/products" />
-              <Toolbar>
-                <input className="search-input" placeholder="搜索商品名称" value={searchKeyword}
-                  onChange={e => setSearchKeyword(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter") handleFilterChange(searchKeyword, auditFilter, dateFrom, dateTo); }} />
-                <button className="primary-button compact" type="button" onClick={() => handleFilterChange(searchKeyword, auditFilter, dateFrom, dateTo)} disabled={productLoading}>
-                  {productLoading ? <Loader2 size={14} className="spin" /> : <Search size={14} />} 搜索
-                </button>
-              </Toolbar>
-              <div className="filter-row" style={{display:'flex', gap:6, flexWrap:'wrap', alignItems:'center', margin:'8px 0'}}>
-                {[
-                  { label: "全部", value: "" },
-                  { label: "待审核", value: "PENDING" },
-                  { label: "已通过", value: "APPROVED" },
-                  { label: "已驳回", value: "REJECTED" }
-                ].map(tab => (
-                  <button key={tab.value}
-                    className={auditFilter === tab.value ? "primary-button compact" : "secondary-button compact"}
-                    type="button"
-                    onClick={() => { setAuditFilter(tab.value); handleFilterChange(searchKeyword, tab.value, dateFrom, dateTo); }}>
-                    {tab.label}
+              <div className="product-controls">
+                <div className="product-search-row">
+                  <input className="search-input" placeholder="搜索商品名称…" value={searchKeyword}
+                    onChange={e => setSearchKeyword(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") handleFilterChange(searchKeyword, auditFilter, dateFrom, dateTo); }} />
+                  <button className="primary-button compact" type="button" onClick={() => handleFilterChange(searchKeyword, auditFilter, dateFrom, dateTo)} disabled={productLoading}>
+                    {productLoading ? <Loader2 size={14} className="spin" /> : <Search size={14} />} 搜索
                   </button>
-                ))}
-                <span className="muted" style={{margin:'0 4px'}}>|</span>
-                <input type="date" className="search-input" style={{width:140}} value={dateFrom}
-                  onChange={e => { setDateFrom(e.target.value); handleFilterChange(searchKeyword, auditFilter, e.target.value, dateTo); }} />
-                <span style={{lineHeight:'28px'}}>~</span>
-                <input type="date" className="search-input" style={{width:140}} value={dateTo}
-                  onChange={e => { setDateTo(e.target.value); handleFilterChange(searchKeyword, auditFilter, dateFrom, e.target.value); }} />
+                </div>
+                <div className="product-filter-bar">
+                  <div className="filter-chips">
+                    {[
+                      { label: "全部", value: "" },
+                      { label: "待审核", value: "PENDING" },
+                      { label: "已通过", value: "APPROVED" },
+                      { label: "已驳回", value: "REJECTED" }
+                    ].map(tab => (
+                      <button key={tab.value}
+                        className={"filter-chip" + (auditFilter === tab.value ? " active" : "")}
+                        type="button"
+                        onClick={() => { setAuditFilter(tab.value); handleFilterChange(searchKeyword, tab.value, dateFrom, dateTo); }}>
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="filter-divider" />
+                  <div className="date-range-group">
+                    <input type="date" className="date-input" value={dateFrom}
+                      onChange={e => { setDateFrom(e.target.value); handleFilterChange(searchKeyword, auditFilter, e.target.value, dateTo); }} />
+                    <span className="date-separator">~</span>
+                    <input type="date" className="date-input" value={dateTo}
+                      onChange={e => { setDateTo(e.target.value); handleFilterChange(searchKeyword, auditFilter, dateFrom, e.target.value); }} />
+                  </div>
+                </div>
               </div>
               <DataTable
                 columns={["商品", "价格", "库存", "状态", "操作"]}
@@ -470,12 +476,12 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
                 }
               />
               {productTotal > 0 && (
-                <div className="pagination" style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0'}}>
-                  <span className="muted" style={{fontSize:13}}>共 {productTotal} 件商品</span>
-                  <div style={{display:'flex', gap:4}}>
-                    <button className="secondary-button compact" type="button" disabled={productPage <= 1 || productLoading} onClick={() => handleProductPageChange(productPage - 1)}>上一页</button>
-                    <span style={{lineHeight:'28px', fontSize:13, padding:'0 8px'}}>{productPage} / {Math.ceil(productTotal / productPageSize)}</span>
-                    <button className="secondary-button compact" type="button" disabled={productPage >= Math.ceil(productTotal / productPageSize) || productLoading} onClick={() => handleProductPageChange(productPage + 1)}>下一页</button>
+                <div className="pagination-bar">
+                  <span className="total-info">共 {productTotal} 件商品</span>
+                  <div className="page-controls">
+                    <button className="page-btn" type="button" disabled={productPage <= 1 || productLoading} onClick={() => handleProductPageChange(productPage - 1)}>上一页</button>
+                    <span className="page-num">{productPage} / {Math.ceil(productTotal / productPageSize)}</span>
+                    <button className="page-btn" type="button" disabled={productPage >= Math.ceil(productTotal / productPageSize) || productLoading} onClick={() => handleProductPageChange(productPage + 1)}>下一页</button>
                   </div>
                 </div>
               )}

@@ -207,7 +207,7 @@ async function fetchMerchantProducts(keyword?: string, auditStatus?: string, dat
       sales: 0,
       status: p.auditStatus === "REJECTED" ? "REJECTED" as const
            : p.auditStatus === "APPROVED" && p.saleStatus === "ON_SALE" ? "ON_SALE" as const
-           : p.auditStatus === "APPROVED" && p.saleStatus === "OFF_SALE" ? "OFF_SALE" as const
+           : p.auditStatus === "APPROVED" ? "APPROVED" as const
            : "AUDITING" as const,
       image: p.mainImageUrl || "",
     })),

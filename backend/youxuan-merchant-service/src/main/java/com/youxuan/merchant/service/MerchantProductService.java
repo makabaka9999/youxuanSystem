@@ -32,27 +32,33 @@ public class MerchantProductService {
     }
 
     /**
-     * 分页查询商家自己的商品列表（支持按名称搜索）。
+     * 分页查询商家自己的商品列表。
      *
-     * @param merchantId 商家 ID
-     * @param keyword    搜索关键词（可选）
-     * @param pageNo     页码
-     * @param pageSize   每页条数
+     * @param merchantId  商家 ID
+     * @param keyword     搜索关键词（可选）
+     * @param auditStatus 审核状态筛选（可选）
+     * @param dateFrom    创建日期起始（可选）
+     * @param dateTo      创建日期截止（可选）
+     * @param pageNo      页码
+     * @param pageSize    每页条数
      * @return 商品列表
      */
-    public List<ProductDO> listProducts(Long merchantId, String keyword, int pageNo, int pageSize) {
-        return productRepository.findByMerchantId(merchantId, keyword, pageNo, pageSize);
+    public List<ProductDO> listProducts(Long merchantId, String keyword, String auditStatus, String dateFrom, String dateTo, int pageNo, int pageSize) {
+        return productRepository.findByMerchantId(merchantId, keyword, auditStatus, dateFrom, dateTo, pageNo, pageSize);
     }
 
     /**
-     * 统计商家商品总数（支持按名称搜索）。
+     * 统计商家商品总数。
      *
-     * @param merchantId 商家 ID
-     * @param keyword    搜索关键词（可选）
+     * @param merchantId  商家 ID
+     * @param keyword     搜索关键词（可选）
+     * @param auditStatus 审核状态筛选（可选）
+     * @param dateFrom    创建日期起始（可选）
+     * @param dateTo      创建日期截止（可选）
      * @return 商品总数
      */
-    public long countProducts(Long merchantId, String keyword) {
-        return productRepository.countByMerchantId(merchantId, keyword);
+    public long countProducts(Long merchantId, String keyword, String auditStatus, String dateFrom, String dateTo) {
+        return productRepository.countByMerchantId(merchantId, keyword, auditStatus, dateFrom, dateTo);
     }
 
     /**

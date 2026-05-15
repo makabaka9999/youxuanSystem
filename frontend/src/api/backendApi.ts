@@ -185,10 +185,13 @@ async function fetchSettlements(): Promise<Settlement[]> {
 
 // ── 员工相关 ──
 
-/** 获取商家商品列表（支持搜索关键词和分页） */
-async function fetchMerchantProducts(keyword?: string, pageNo?: number, pageSize?: number): Promise<{ items: Product[]; total: number }> {
+/** 获取商家商品列表（支持搜索、审核状态筛选、日期范围、分页） */
+async function fetchMerchantProducts(keyword?: string, auditStatus?: string, dateFrom?: string, dateTo?: string, pageNo?: number, pageSize?: number): Promise<{ items: Product[]; total: number }> {
   const params = new URLSearchParams();
   if (keyword) params.set("keyword", keyword);
+  if (auditStatus) params.set("auditStatus", auditStatus);
+  if (dateFrom) params.set("dateFrom", dateFrom);
+  if (dateTo) params.set("dateTo", dateTo);
   params.set("pageNo", String(pageNo ?? 1));
   params.set("pageSize", String(pageSize ?? 20));
   const data = await safeFetch<{ items?: any[]; list?: any[]; total: number }>(`${API_BASE_URL}/merchant/products?${params.toString()}`);
@@ -511,9 +514,9 @@ export const api = {
     return createStaff(request);
   },
 
-  /** 获取商家商品列表（支持搜索关键词和分页） */
-  async fetchMerchantProducts(keyword?: string, pageNo?: number, pageSize?: number): Promise<{ items: Product[]; total: number }> {
-    return fetchMerchantProducts(keyword, pageNo, pageSize);
+  /** 获取商家商品列表（支持搜索、审核状态筛选、日期范围、分页） */
+  async fetchMerchantProducts(keyword?: string, auditStatus?: string, dateFrom?: string, dateTo?: string, pageNo?: number, pageSize?: number): Promise<{ items: Product[]; total: number }> {
+    return fetchMerchantProducts(keyword, auditStatus, dateFrom, dateTo, pageNo, pageSize);
   },
 
   /** 获取平台后台商品列表（可按审核状态筛选） */

@@ -46,6 +46,9 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
   const [displayProducts, setDisplayProducts] = useState<Product[]>(products);
   const [displayMetrics, setDisplayMetrics] = useState<Metric[]>(metrics);
   const [searchKeyword, setSearchKeyword] = useState("");
+  const [auditFilter, setAuditFilter] = useState(""); // ""全部 / PENDING / APPROVED / REJECTED
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [productPage, setProductPage] = useState(1);
   const [productTotal, setProductTotal] = useState(0);
   const [productLoading, setProductLoading] = useState(false);
@@ -92,11 +95,11 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
   const [prodImageUploading, setProdImageUploading] = useState(false);
   const prodImagePreviewRef = useRef<string | null>(null);
 
-  /** 从后端加载商品列表（支持搜索和分页） */
-  const loadProducts = useCallback(async (keyword: string, page: number) => {
+  /** 从后端加载商品列表（支持搜索、筛选、分页） */
+  const loadProducts = useCallback(async (keyword: string, filter: string, from: string, to: string, page: number) => {
     setProductLoading(true);
     try {
-      const result = await api.fetchMerchantProducts(keyword || undefined, page, productPageSize);
+      const result = await api.fetchMerchantProducts(keyword || undefined, filter || undefined, from || undefined, to || undefined, page, productPageSize);
       setDisplayProducts(result.items);
       setProductTotal(result.total);
       setProductPage(page);
@@ -108,15 +111,15 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
     }
   }, []);
 
-  /** 按名称搜索 */
-  const handleProductSearch = useCallback(() => {
-    loadProducts(searchKeyword, 1);
-  }, [loadProducts, searchKeyword]);
+  /** 搜索 / 筛选 / 日期变更统一触发查询（回到第一页） */
+  const handleFilterChange = useCallback((keyword: string, filter: string, from: string, to: string) => {
+    loadProducts(keyword, filter, from, to, 1);
+  }, [loadProducts]);
 
   /** 翻页 */
   const handleProductPageChange = useCallback((page: number) => {
-    loadProducts(searchKeyword, page);
-  }, [loadProducts, searchKeyword]);
+    loadProducts(searchKeyword, auditFilter, dateFrom, dateTo, page);
+  }, [loadProducts, searchKeyword, auditFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     setDisplayMetrics(metrics);
@@ -427,15 +430,36 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
               <Toolbar>
                 <input className="search-input" placeholder="搜索商品名称" value={searchKeyword}
                   onChange={e => setSearchKeyword(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter") handleProductSearch(); }} />
-                <button className="primary-button compact" type="button" onClick={handleProductSearch} disabled={productLoading}>
+                  onKeyDown={e => { if (e.key === "Enter") handleFilterChange(searchKeyword, auditFilter, dateFrom, dateTo); }} />
+                <button className="primary-button compact" type="button" onClick={() => handleFilterChange(searchKeyword, auditFilter, dateFrom, dateTo)} disabled={productLoading}>
                   {productLoading ? <Loader2 size={14} className="spin" /> : <Search size={14} />} 搜索
                 </button>
               </Toolbar>
+              <div className="filter-row" style={{display:'flex', gap:6, flexWrap:'wrap', alignItems:'center', margin:'8px 0'}}>
+                {[
+                  { label: "全部", value: "" },
+                  { label: "待审核", value: "PENDING" },
+                  { label: "已通过", value: "APPROVED" },
+                  { label: "已驳回", value: "REJECTED" }
+                ].map(tab => (
+                  <button key={tab.value}
+                    className={auditFilter === tab.value ? "primary-button compact" : "secondary-button compact"}
+                    type="button"
+                    onClick={() => { setAuditFilter(tab.value); handleFilterChange(searchKeyword, tab.value, dateFrom, dateTo); }}>
+                    {tab.label}
+                  </button>
+                ))}
+                <span className="muted" style={{margin:'0 4px'}}>|</span>
+                <input type="date" className="search-input" style={{width:140}} value={dateFrom}
+                  onChange={e => { setDateFrom(e.target.value); handleFilterChange(searchKeyword, auditFilter, e.target.value, dateTo); }} />
+                <span style={{lineHeight:'28px'}}>~</span>
+                <input type="date" className="search-input" style={{width:140}} value={dateTo}
+                  onChange={e => { setDateTo(e.target.value); handleFilterChange(searchKeyword, auditFilter, dateFrom, e.target.value); }} />
+              </div>
               <DataTable
                 columns={["商品", "价格", "库存", "状态", "操作"]}
                 rows={displayProducts.length === 0
-                  ? [["", <span className="muted">暂无商品，点击"发布商品"创建</span>, "", "", ""]]
+                  ? [["", <span className="muted">暂无商品</span>, "", "", ""]]
                   : displayProducts.map((product) => [
                     <div className="table-product">{product.image ? <img src={product.image} alt="" /> : null}<span>{product.name}</span></div>,
                     <AmountText value={product.price} />,
@@ -445,11 +469,14 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
                   ])
                 }
               />
-              {productTotal > productPageSize && (
-                <div className="pagination" style={{display:'flex', justifyContent:'flex-end', gap:4, padding:'8px 0'}}>
-                  <button className="secondary-button compact" type="button" disabled={productPage <= 1 || productLoading} onClick={() => handleProductPageChange(productPage - 1)}>上一页</button>
-                  <span className="pagination-info" style={{lineHeight:'28px', fontSize:13, padding:'0 8px'}}>第 {productPage} / {Math.ceil(productTotal / productPageSize)} 页</span>
-                  <button className="secondary-button compact" type="button" disabled={productPage >= Math.ceil(productTotal / productPageSize) || productLoading} onClick={() => handleProductPageChange(productPage + 1)}>下一页</button>
+              {productTotal > 0 && (
+                <div className="pagination" style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0'}}>
+                  <span className="muted" style={{fontSize:13}}>共 {productTotal} 件商品</span>
+                  <div style={{display:'flex', gap:4}}>
+                    <button className="secondary-button compact" type="button" disabled={productPage <= 1 || productLoading} onClick={() => handleProductPageChange(productPage - 1)}>上一页</button>
+                    <span style={{lineHeight:'28px', fontSize:13, padding:'0 8px'}}>{productPage} / {Math.ceil(productTotal / productPageSize)}</span>
+                    <button className="secondary-button compact" type="button" disabled={productPage >= Math.ceil(productTotal / productPageSize) || productLoading} onClick={() => handleProductPageChange(productPage + 1)}>下一页</button>
+                  </div>
                 </div>
               )}
             </Card>

@@ -62,23 +62,29 @@ public class MerchantController {
     }
 
     /**
-     * 分页查询商家自己的商品列表（支持按名称搜索）。
+     * 分页查询商家自己的商品列表（支持名称搜索、审核状态筛选、日期范围）。
      *
-     * @param keyword  搜索关键词（可选）
-     * @param pageNo   页码
-     * @param pageSize 每页条数
-     * @return 商品分页列表
+     * @param keyword     搜索关键词（可选）
+     * @param auditStatus 审核状态：PENDING / APPROVED / REJECTED（可选）
+     * @param dateFrom    创建日期起始 YYYY-MM-DD（可选）
+     * @param dateTo      创建日期截止 YYYY-MM-DD（可选）
+     * @param pageNo      页码
+     * @param pageSize    每页条数
+     * @return 商品分页列表（按创建时间倒序）
      */
     @GetMapping("/merchant/products")
     public ApiResponse<PageResponse<ProductDO>> listProducts(
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String auditStatus,
+            @RequestParam(required = false) String dateFrom,
+            @RequestParam(required = false) String dateTo,
             @RequestParam(defaultValue = "1") int pageNo,
             @RequestParam(defaultValue = "20") int pageSize) {
         Long merchantId = JwtRequestContext.get().getMerchantId();
         if (pageSize > 100) pageSize = 100;
         if (pageNo < 1) pageNo = 1;
-        List<ProductDO> items = merchantProductService.listProducts(merchantId, keyword, pageNo, pageSize);
-        long total = merchantProductService.countProducts(merchantId, keyword);
+        List<ProductDO> items = merchantProductService.listProducts(merchantId, keyword, auditStatus, dateFrom, dateTo, pageNo, pageSize);
+        long total = merchantProductService.countProducts(merchantId, keyword, auditStatus, dateFrom, dateTo);
         return ApiResponse.success(new PageResponse<>(pageNo, pageSize, total, items), RequestContext.getRequestId());
     }
 

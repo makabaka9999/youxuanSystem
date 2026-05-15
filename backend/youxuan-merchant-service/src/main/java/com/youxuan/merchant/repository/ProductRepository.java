@@ -24,44 +24,76 @@ public class ProductRepository {
     }
 
     /**
-     * 根据商家 ID 分页查询商品列表（支持按名称搜索）。
+     * 根据商家 ID 分页查询商品列表（支持名称搜索、审核状态筛选、日期范围）。
      *
-     * @param merchantId 商家 ID
-     * @param keyword    搜索关键词（可选）
-     * @param pageNo     页码
-     * @param pageSize   每页条数
+     * @param merchantId  商家 ID
+     * @param keyword     搜索关键词（可选）
+     * @param auditStatus 审核状态：PENDING / APPROVED / REJECTED（可选）
+     * @param dateFrom    创建日期起始（可选）
+     * @param dateTo      创建日期截止（可选）
+     * @param pageNo      页码
+     * @param pageSize    每页条数
      * @return 商品列表
      */
-    public List<ProductDO> findByMerchantId(Long merchantId, String keyword, int pageNo, int pageSize) {
+    public List<ProductDO> findByMerchantId(Long merchantId, String keyword, String auditStatus, String dateFrom, String dateTo, int pageNo, int pageSize) {
         StringBuilder sql = new StringBuilder("SELECT * FROM products WHERE merchant_id = ? AND deleted_at IS NULL");
         if (keyword != null && !keyword.isEmpty()) {
             sql.append(" AND product_name LIKE ?");
         }
-        sql.append(" ORDER BY id DESC LIMIT ? OFFSET ?");
-        int offset = (pageNo - 1) * pageSize;
-        if (keyword != null && !keyword.isEmpty()) {
-            return jdbcTemplate.query(sql.toString(), productRowMapper(), merchantId, "%" + keyword + "%", pageSize, offset);
+        if (auditStatus != null && !auditStatus.isEmpty()) {
+            sql.append(" AND audit_status = ?");
         }
-        return jdbcTemplate.query(sql.toString(), productRowMapper(), merchantId, pageSize, offset);
+        if (dateFrom != null && !dateFrom.isEmpty()) {
+            sql.append(" AND created_at >= ?");
+        }
+        if (dateTo != null && !dateTo.isEmpty()) {
+            sql.append(" AND created_at < DATE_ADD(?, INTERVAL 1 DAY)");
+        }
+        sql.append(" ORDER BY created_at DESC LIMIT ? OFFSET ?");
+
+        int offset = (pageNo - 1) * pageSize;
+        List<Object> params = new java.util.ArrayList<>();
+        params.add(merchantId);
+        if (keyword != null && !keyword.isEmpty()) params.add("%" + keyword + "%");
+        if (auditStatus != null && !auditStatus.isEmpty()) params.add(auditStatus);
+        if (dateFrom != null && !dateFrom.isEmpty()) params.add(dateFrom + " 00:00:00");
+        if (dateTo != null && !dateTo.isEmpty()) params.add(dateTo + " 00:00:00");
+        params.add(pageSize);
+        params.add(offset);
+        return jdbcTemplate.query(sql.toString(), productRowMapper(), params.toArray());
     }
 
     /**
-     * 统计商家商品总数（支持按名称搜索）。
+     * 统计商家商品总数（支持名称搜索、审核状态筛选、日期范围）。
      *
-     * @param merchantId 商家 ID
-     * @param keyword    搜索关键词（可选）
+     * @param merchantId  商家 ID
+     * @param keyword     搜索关键词（可选）
+     * @param auditStatus 审核状态（可选）
+     * @param dateFrom    创建日期起始（可选）
+     * @param dateTo      创建日期截止（可选）
      * @return 商品总数
      */
-    public long countByMerchantId(Long merchantId, String keyword) {
+    public long countByMerchantId(Long merchantId, String keyword, String auditStatus, String dateFrom, String dateTo) {
         StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM products WHERE merchant_id = ? AND deleted_at IS NULL");
         if (keyword != null && !keyword.isEmpty()) {
             sql.append(" AND product_name LIKE ?");
         }
-        if (keyword != null && !keyword.isEmpty()) {
-            Long count = jdbcTemplate.queryForObject(sql.toString(), Long.class, merchantId, "%" + keyword + "%");
-            return count != null ? count : 0L;
+        if (auditStatus != null && !auditStatus.isEmpty()) {
+            sql.append(" AND audit_status = ?");
         }
-        Long count = jdbcTemplate.queryForObject(sql.toString(), Long.class, merchantId);
+        if (dateFrom != null && !dateFrom.isEmpty()) {
+            sql.append(" AND created_at >= ?");
+        }
+        if (dateTo != null && !dateTo.isEmpty()) {
+            sql.append(" AND created_at < DATE_ADD(?, INTERVAL 1 DAY)");
+        }
+        List<Object> params = new java.util.ArrayList<>();
+        params.add(merchantId);
+        if (keyword != null && !keyword.isEmpty()) params.add("%" + keyword + "%");
+        if (auditStatus != null && !auditStatus.isEmpty()) params.add(auditStatus);
+        if (dateFrom != null && !dateFrom.isEmpty()) params.add(dateFrom + " 00:00:00");
+        if (dateTo != null && !dateTo.isEmpty()) params.add(dateTo + " 00:00:00");
+        Long count = jdbcTemplate.queryForObject(sql.toString(), Long.class, params.toArray());
         return count != null ? count : 0L;
     }
 

@@ -45,6 +45,7 @@ type MerchantPortalProps = {
 export function MerchantPortal({ metrics, products, orders, afterSales, settlements, onNavigate, visibleSections }: MerchantPortalProps) {
   const [displayProducts, setDisplayProducts] = useState<Product[]>(products);
   const [displayMetrics, setDisplayMetrics] = useState<Metric[]>(metrics);
+  const [productKeyword, setProductKeyword] = useState("");
   const withdrawableAmount = useMemo(
     () => displayMetrics.find((m) => m.label === "可提现余额")?.value ?? "0.00",
     [displayMetrics]
@@ -90,6 +91,13 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
   useEffect(() => {
     setDisplayProducts(products);
   }, [products]);
+
+  /** 商品本地搜索过滤 */
+  const filteredProducts = useMemo(() => {
+    if (!productKeyword.trim()) return displayProducts;
+    const kw = productKeyword.trim().toLowerCase();
+    return displayProducts.filter(p => p.name.toLowerCase().includes(kw));
+  }, [displayProducts, productKeyword]);
 
   useEffect(() => {
     setDisplayMetrics(metrics);
@@ -396,16 +404,16 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
             <Card id="merchant-products">
               <SectionHeader title="商品管理" description="来源：GET /api/v1/merchant/products" />
               <Toolbar>
-                <input className="search-input" placeholder="搜索商品名称" />
-                <button className="primary-button compact" type="button" onClick={openProductModal}>
-                  <Plus size={14} /> 发布商品
+                <input className="search-input" placeholder="搜索商品名称" value={productKeyword} onChange={e => setProductKeyword(e.target.value)} />
+                <button className="primary-button compact" type="button">
+                  <Search size={14} /> 搜索
                 </button>
               </Toolbar>
               <DataTable
                 columns={["商品", "价格", "库存", "状态", "操作"]}
-                rows={displayProducts.length === 0
+                rows={filteredProducts.length === 0
                   ? [["", <span className="muted">暂无商品，点击"发布商品"创建</span>, "", "", ""]]
-                  : displayProducts.map((product) => [
+                  : filteredProducts.map((product) => [
                     <div className="table-product">{product.image ? <img src={product.image} alt="" /> : null}<span>{product.name}</span></div>,
                     <AmountText value={product.price} />,
                     product.stock,

@@ -121,6 +121,20 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
     loadProducts(searchKeyword, auditFilter, dateFrom, dateTo, page);
   }, [loadProducts, searchKeyword, auditFilter, dateFrom, dateTo]);
 
+  /** 上架 / 下架商品 */
+  const handleToggleSale = useCallback(async (product: Product, on: boolean) => {
+    try {
+      if (on) {
+        await api.onSale(product.id);
+      } else {
+        await api.offSale(product.id);
+      }
+      loadProducts(searchKeyword, auditFilter, dateFrom, dateTo, productPage);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "操作失败");
+    }
+  }, [loadProducts, searchKeyword, auditFilter, dateFrom, dateTo, productPage]);
+
   useEffect(() => {
     setDisplayMetrics(metrics);
   }, [metrics]);
@@ -471,7 +485,11 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
                     <AmountText value={product.price} />,
                     product.stock,
                     <StatusTag {...productStatusMap[product.status]} />,
-                    <button className="link-button">{product.status === "AUDITING" ? "审核中" : product.status === "REJECTED" ? "已驳回" : "编辑"}</button>
+                    (product.status === "AUDITING" ? <span className="muted" style={{fontSize:13}}>审核中</span>
+                    : product.status === "REJECTED" ? <span className="muted" style={{fontSize:13}}>已驳回</span>
+                    : product.status === "APPROVED" ? <button className="link-button" onClick={() => handleToggleSale(product, true)}><span className="status-dot success" />上架</button>
+                    : product.status === "ON_SALE" ? <button className="link-button" onClick={() => handleToggleSale(product, false)}>下架</button>
+                    : null)
                   ])
                 }
               />

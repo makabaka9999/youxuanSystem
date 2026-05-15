@@ -980,6 +980,18 @@ img {
   color: var(--rose-700);
 }
 
+.status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 3px;
+}
+
+.status-dot.success { background: var(--color-success); }
+.status-dot.warning { background: var(--color-warning); }
+.status-dot.danger { background: var(--color-danger); }
+
 .danger-text {
   color: var(--color-danger);
 }

@@ -590,5 +590,25 @@ export const api = {
     if (!resp.ok) throw new Error("审核请求失败");
     const body = await resp.json();
     if (body.code !== "SUCCESS") throw new Error(body.message || "审核操作失败");
+  },
+
+  /** 上架商品（商家端） */
+  async onSale(productId: string): Promise<void> {
+    const resp = await fetch(`${API_BASE_URL}/merchant/products/${productId}/on-sale`, {
+      method: "POST", headers: headers()
+    });
+    if (!resp.ok) throw new Error("上架请求失败");
+    const body = await resp.json();
+    if (body.code !== "SUCCESS") throw new Error(body.message || "上架操作失败");
+  },
+
+  /** 下架商品（商家端） */
+  async offSale(productId: string): Promise<void> {
+    const resp = await fetch(`${API_BASE_URL}/merchant/products/${productId}/off-sale`, {
+      method: "POST", headers: headers()
+    });
+    if (!resp.ok) throw new Error("下架请求失败");
+    const body = await resp.json();
+    if (body.code !== "SUCCESS") throw new Error(body.message || "下架操作失败");
   }
 };

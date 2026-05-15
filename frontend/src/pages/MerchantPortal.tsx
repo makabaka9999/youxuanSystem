@@ -43,6 +43,12 @@ type MerchantPortalProps = {
 
 /** 商家端门户页面组件 */
 export function MerchantPortal({ metrics, products, orders, afterSales, settlements, onNavigate, visibleSections }: MerchantPortalProps) {
+  const [displayProducts, setDisplayProducts] = useState<Product[]>(products);
+  const [displayMetrics, setDisplayMetrics] = useState<Metric[]>(metrics);
+  const withdrawableAmount = useMemo(
+    () => displayMetrics.find((m) => m.label === "可提现余额")?.value ?? "0.00",
+    [displayMetrics]
+  );
   // ── 员工管理状态 ──
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [staffLoading, setStaffLoading] = useState(false);
@@ -71,11 +77,23 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
   const [prodPrice, setProdPrice] = useState("");
   const [prodStock, setProdStock] = useState("");
   const [prodImage, setProdImage] = useState("");
+  const [prodImagePreview, setProdImagePreview] = useState("");
   const [prodDesc, setProdDesc] = useState("");
   const [prodCategoryTree, setProdCategoryTree] = useState<any[]>([]);
+  const [prodCategoryLoading, setProdCategoryLoading] = useState(false);
+  const [prodCategoryError, setProdCategoryError] = useState("");
   const [prodSubmitting, setProdSubmitting] = useState(false);
   const [prodError, setProdError] = useState("");
   const [prodImageUploading, setProdImageUploading] = useState(false);
+  const prodImagePreviewRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    setDisplayProducts(products);
+  }, [products]);
+
+  useEffect(() => {
+    setDisplayMetrics(metrics);
+  }, [metrics]);
 
   /** 根据选中的父类目计算可用子类目 */
   const prodChildCategories = useMemo(() => {
@@ -120,6 +138,18 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
   useEffect(() => {
     return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
   }, []);
+
+  /** 清理商品主图的本地预览地址，避免重复上传时泄漏对象 URL */
+  const clearImagePreview = useCallback(() => {
+    if (prodImagePreviewRef.current) {
+      URL.revokeObjectURL(prodImagePreviewRef.current);
+      prodImagePreviewRef.current = null;
+    }
+    setProdImagePreview("");
+  }, []);
+
+  /** 组件卸载时释放仍在使用的本地图片预览地址 */
+  useEffect(() => clearImagePreview, [clearImagePreview]);
 
   /** 多选角色切换 */
   const toggleRole = useCallback((role: string) => {
@@ -207,30 +237,72 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
   }, [loadStaff]);
 
   /** 打开发布商品弹窗时加载类目 */
-  const openProductModal = useCallback(async () => {
-    setShowProductModal(true);
-    setProdError("");
-    if (prodCategoryTree.length === 0) {
+  const loadProductCategories = useCallback(async () => {
+    setProdCategoryLoading(true);
+    setProdCategoryError("");
+    try {
       const tree = await api.fetchCategories();
       setProdCategoryTree(tree);
+      if (tree.length === 0) {
+        setProdCategoryError("暂无可用类目，请先初始化类目数据");
+      }
+    } catch (err) {
+      setProdCategoryError(err instanceof Error ? err.message : "类目加载失败，请重试");
+    } finally {
+      setProdCategoryLoading(false);
     }
-  }, [prodCategoryTree.length]);
+  }, []);
+
+  const openProductModal = useCallback(() => {
+    setShowProductModal(true);
+    setProdError("");
+    setProdCategoryError("");
+  }, []);
+
+  useEffect(() => {
+    if (showProductModal && prodCategoryTree.length === 0 && !prodCategoryLoading && !prodCategoryError) {
+      loadProductCategories();
+    }
+  }, [loadProductCategories, prodCategoryError, prodCategoryLoading, prodCategoryTree.length, showProductModal]);
+
+  const setMerchantAuditingMetric = useCallback((nextProducts: Product[]) => {
+    setDisplayMetrics((currentMetrics) => currentMetrics.map((metric) => {
+      if (!metric.label.includes("审核中商品")) return metric;
+      return {
+        ...metric,
+        value: String(nextProducts.filter((product) => product.status === "AUDITING").length)
+      };
+    }));
+  }, []);
 
   /** 上传商品图片 */
   const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    clearImagePreview();
+    const previewUrl = URL.createObjectURL(file);
+    prodImagePreviewRef.current = previewUrl;
+    setProdImagePreview(previewUrl);
+    setProdImage("");
     setProdImageUploading(true);
     try {
       const url = await api.uploadImage(file);
       setProdImage(url);
     } catch (err) {
       setProdError(err instanceof Error ? err.message : "图片上传失败");
+      setProdImage("");
+      clearImagePreview();
     }
     setProdImageUploading(false);
     // 清空 input 值以便重复选择同一文件
     e.target.value = "";
-  }, []);
+  }, [clearImagePreview]);
+
+  /** 删除已选择的商品主图 */
+  const removeProductImage = useCallback(() => {
+    setProdImage("");
+    clearImagePreview();
+  }, [clearImagePreview]);
 
   /** 提交发布商品 */
   const handlePublishProduct = useCallback(async () => {
@@ -249,16 +321,17 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
         mainImageUrl: prodImage.trim(),
         detailHtml: prodDesc.trim(),
       });
+      const freshProducts = await api.fetchMerchantProducts();
+      setDisplayProducts(freshProducts);
+      setMerchantAuditingMetric(freshProducts);
       setShowProductModal(false);
       setProdName(""); setProdCategoryId(0); setProdPrice(""); setProdStock("");
-      setProdImage(""); setProdDesc("");
-      // 刷新页面数据以展示新商品
-      window.location.reload();
+      setProdImage(""); clearImagePreview(); setProdDesc("");
     } catch (err) {
       setProdError(err instanceof Error ? err.message : "发布商品失败");
     }
     setProdSubmitting(false);
-  }, [prodName, prodCategoryId, prodPrice, prodStock, prodImage, prodDesc]);
+  }, [prodName, prodCategoryId, prodPrice, prodStock, prodImage, prodDesc, clearImagePreview, setMerchantAuditingMetric]);
 
   /** 判断区域是否可见 */
   const canShow = useCallback((section: string) => {
@@ -306,7 +379,7 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
           </div>
           <div>
             <span>可提现余额</span>
-            <strong>¥45,189.35</strong>
+            <strong>¥{withdrawableAmount}</strong>
           </div>
           <div>
             <span>员工账号</span>
@@ -315,7 +388,7 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
         </div>
       </section>
 
-      <MetricGrid metrics={metrics} />
+      <MetricGrid metrics={displayMetrics} />
 
       {canShow("products") || canShow("orders") ? (
         <section className="content-grid two-col">
@@ -330,9 +403,9 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
               </Toolbar>
               <DataTable
                 columns={["商品", "价格", "库存", "状态", "操作"]}
-                rows={products.length === 0
+                rows={displayProducts.length === 0
                   ? [["", <span className="muted">暂无商品，点击"发布商品"创建</span>, "", "", ""]]
-                  : products.map((product) => [
+                  : displayProducts.map((product) => [
                     <div className="table-product">{product.image ? <img src={product.image} alt="" /> : null}<span>{product.name}</span></div>,
                     <AmountText value={product.price} />,
                     product.stock,
@@ -512,19 +585,27 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
               <div className="form-row" style={{display:'flex', gap:12}}>
                 <div className="form-group" style={{flex:1}}>
                   <label>一级类目 <span className="required">*</span></label>
-                  <select value={prodParentId} onChange={e => { setProdParentId(Number(e.target.value)); setProdCategoryId(0); }} disabled={prodSubmitting}>
-                    <option value={0}>请选择类目</option>
+                  <select value={prodParentId} onChange={e => { setProdParentId(Number(e.target.value)); setProdCategoryId(0); setProdCategoryError(""); }} disabled={prodSubmitting || prodCategoryLoading || prodCategoryTree.length === 0}>
+                    <option value={0}>{prodCategoryLoading ? "类目加载中..." : "请选择类目"}</option>
                     {prodCategoryTree.map((c: any) => <option key={c.id} value={c.id}>{c.categoryName}</option>)}
                   </select>
                 </div>
                 <div className="form-group" style={{flex:1}}>
                   <label>二级类目</label>
-                  <select value={prodCategoryId} onChange={e => setProdCategoryId(Number(e.target.value))} disabled={prodSubmitting || !prodParentId}>
+                  <select value={prodCategoryId} onChange={e => setProdCategoryId(Number(e.target.value))} disabled={prodSubmitting || prodCategoryLoading || !prodParentId}>
                     <option value={0}>请选择子类目</option>
                     {prodChildCategories.map((c: any) => <option key={c.id} value={c.id}>{c.categoryName}</option>)}
                   </select>
                 </div>
               </div>
+              {prodCategoryError && (
+                <p className="form-error">
+                  {prodCategoryError}
+                  <button className="link-button" type="button" onClick={loadProductCategories} disabled={prodCategoryLoading || prodSubmitting}>
+                    重新加载类目
+                  </button>
+                </p>
+              )}
               <div className="form-row" style={{display:'flex', gap:12}}>
                 <div className="form-group" style={{flex:1}}>
                   <label>售价 <span className="required">*</span></label>
@@ -538,10 +619,10 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
               <div className="form-group">
                 <label>主图</label>
                 <div className="upload-area">
-                  {prodImage ? (
+                  {prodImagePreview || prodImage ? (
                     <div className="upload-preview">
-                      <img src={prodImage} alt="商品主图" />
-                      <button type="button" className="upload-remove" onClick={() => setProdImage("")} disabled={prodSubmitting}>删除</button>
+                      <img src={prodImagePreview || prodImage} alt="商品主图" />
+                      <button type="button" className="upload-remove" onClick={removeProductImage} disabled={prodSubmitting}>删除</button>
                     </div>
                   ) : (
                     <label className={`upload-btn ${prodImageUploading ? "uploading" : ""}`}>

@@ -187,9 +187,9 @@ async function fetchSettlements(): Promise<Settlement[]> {
 
 /** 获取商家商品列表 */
 async function fetchMerchantProducts(): Promise<Product[]> {
-  const data = await safeFetch<{ items: any[]; total: number }>(`${API_BASE_URL}/merchant/products?pageNo=1&pageSize=50`);
-  if (!data || !data.items) return [];
-  return data.items.map((p: any) => ({
+  const data = await safeFetch<{ items?: any[]; list?: any[]; total: number }>(`${API_BASE_URL}/merchant/products?pageNo=1&pageSize=50`);
+  const productItems = data?.items || data?.list || [];
+  return productItems.map((p: any) => ({
     id: String(p.id || ""),
     name: p.productName || "",
     storeName: "",
@@ -375,6 +375,34 @@ const mockMetrics: Record<string, Metric[]> = {
   ]
 };
 
+function buildMerchantMetrics(
+  products: Product[],
+  orders: Order[],
+  afterSales: AfterSale[],
+  settlements: Settlement[]
+): Metric[] {
+  const withdrawableAmount = settlements
+    .filter((settlement) => settlement.status === "APPROVED")
+    .reduce((sum, settlement) => sum + Number(settlement.payableAmount || 0), 0)
+    .toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const pendingSettlementAmount = settlements
+    .filter((settlement) => settlement.status === "PENDING_AUDIT")
+    .reduce((sum, settlement) => sum + Number(settlement.payableAmount || 0), 0)
+    .toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  return [
+    { label: "待发货订单", value: String(orders.filter((order) => order.status === "PAID").length), hint: "来自订单表", tone: "warning" },
+    { label: "售后待处理", value: String(afterSales.length), hint: "来自售后表", tone: "danger" },
+    { label: "可提现余额", value: withdrawableAmount, hint: `待审核 ${pendingSettlementAmount}`, tone: "success" },
+    {
+      label: "审核中商品",
+      value: String(products.filter((product) => product.status === "AUDITING").length),
+      hint: "来自商品审核状态",
+      tone: "info"
+    }
+  ];
+}
+
 // ── 导出三个门户的首页数据获取函数 ──
 
 export const api = {
@@ -410,13 +438,7 @@ export const api = {
       fetchSettlements().catch(() => [] as Settlement[])
     ]);
     return {
-      metrics: orders.length > 0
-        ? [
-            { label: "待发货", value: String(orders.filter(o => o.status === "PAID").length), hint: "最早超时 2 小时后", tone: "warning" as const },
-            { label: "售后待处理", value: String(afterSales.length), hint: "进行中", tone: "danger" as const },
-            { label: "结算中", value: String(settlements.filter(s => s.status === "PENDING_AUDIT").length), hint: "待审核", tone: "info" as const }
-          ]
-        : mockMetrics.merchant,
+      metrics: buildMerchantMetrics(products, orders, afterSales, settlements),
       products,
       orders,
       afterSales,

@@ -205,6 +205,25 @@ async function fetchMerchantProducts(): Promise<Product[]> {
   }));
 }
 
+/** 获取平台后台待审核商品列表 */
+async function fetchAdminPendingProducts(): Promise<Product[]> {
+  const data = await safeFetch<{ list: any[]; total: number }>(
+    `${API_BASE_URL}/admin/products/pending-audit?pageNo=1&pageSize=50`
+  );
+  if (!data || !data.list) return [];
+  return data.list.map((p: any) => ({
+    id: String(p.id || ""),
+    name: p.productName || "",
+    storeName: p.storeName || "",
+    category: p.categoryName || "",
+    price: String(p.price || "0"),
+    stock: p.stockTotal || 0,
+    sales: 0,
+    status: "AUDITING",
+    image: p.mainImageUrl || ""
+  }));
+}
+
 /** 创建商品 */
 async function createMerchantProduct(request: {
   productName: string;
@@ -497,7 +516,7 @@ export const api = {
   async getAdminHome() {
     const [merchants, products, orders, afterSales, settlements, exceptions, operationLogs] = await Promise.all([
       fetchMerchants().catch(() => [] as Merchant[]),
-      fetchProducts().catch(() => [] as Product[]),
+      fetchAdminPendingProducts().catch(() => [] as Product[]),
       fetchOrders().catch(() => [] as Order[]),
       fetchAfterSales().catch(() => [] as AfterSale[]),
       fetchSettlements().catch(() => [] as Settlement[]),

@@ -110,7 +110,7 @@ export function AdminPortal({
 
         {/* 商品审核队列 */}
         <Card id="admin-product-audit">
-          <SectionHeader title="商品审核队列" description="来源：GET /api/v1/admin/product-audits" action="商品审核" />
+          <SectionHeader title="商品审核队列" description="来源：GET /api/v1/admin/products/pending-audit" action="商品审核" />
           <DataTable
             columns={["商品", "商家", "类目", "库存", "状态", "操作"]}
             rows={products.map((product) => [

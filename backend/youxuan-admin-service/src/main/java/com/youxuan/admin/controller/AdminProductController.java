@@ -1,5 +1,6 @@
 package com.youxuan.admin.controller;
 
+import com.youxuan.admin.model.ProductAuditVO;
 import com.youxuan.admin.service.AdminProductService;
 import com.youxuan.common.api.ApiResponse;
 import com.youxuan.common.api.PageResponse;
@@ -41,12 +42,12 @@ public class AdminProductController {
      * @return 待审核商品列表
      */
     @GetMapping("/pending-audit")
-    public ApiResponse<PageResponse<Map<String, Object>>> listPendingAuditProducts(
+    public ApiResponse<PageResponse<ProductAuditVO>> listPendingAuditProducts(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long merchantId,
             @RequestParam(defaultValue = "1") int pageNo,
             @RequestParam(defaultValue = "20") int pageSize) {
-        PageResponse<Map<String, Object>> result =
+        PageResponse<ProductAuditVO> result =
                 adminProductService.listPendingAuditProducts(keyword, merchantId, pageNo, pageSize);
         return ApiResponse.success(result, RequestContext.getRequestId());
     }

@@ -9,7 +9,8 @@
  * - 订单与售后监控
  * - 操作审计日志
  */
-import { AlertTriangle, BadgeCheck, FileClock, Landmark, ListChecks, ScrollText, ShieldAlert } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Check, FileClock, Landmark, ListChecks, Loader2, ScrollText, ShieldAlert, X } from "lucide-react";
+import { useCallback, useState } from "react";
 import {
   afterSaleStatusMap,
   merchantAuditMap,
@@ -19,6 +20,7 @@ import {
   settlementStatusMap
 } from "../domain";
 import { AmountText, Card, DataTable, MetricGrid, SectionHeader, StatusTag, Toolbar, SearchInput } from "../components";
+import { api } from "../api/backendApi";
 import type { AfterSale, ExceptionRecord, Merchant, Metric, OperationLog, Order, Product, Settlement } from "../types";
 
 /** 平台后台门户页面组件属性 */
@@ -46,6 +48,40 @@ export function AdminPortal({
   operationLogs,
   onNavigate
 }: AdminPortalProps) {
+  // ── 商品审核状态 ──
+  const [auditTarget, setAuditTarget] = useState<Product | null>(null);
+  const [auditReason, setAuditReason] = useState("");
+  const [auditSubmitting, setAuditSubmitting] = useState(false);
+  const [auditError, setAuditError] = useState("");
+
+  /** 打开展开审核弹窗 */
+  const openAudit = useCallback((product: Product) => {
+    setAuditTarget(product);
+    setAuditReason("");
+    setAuditError("");
+  }, []);
+
+  /** 提交审核结果 */
+  const submitAudit = useCallback(async (approved: boolean) => {
+    if (!auditTarget) return;
+    if (!approved && !auditReason.trim()) {
+      setAuditError("驳回时必须填写审核意见");
+      return;
+    }
+    setAuditSubmitting(true);
+    setAuditError("");
+    try {
+      await api.auditProduct(auditTarget.id, approved, auditReason.trim() || undefined);
+      setAuditTarget(null);
+      // 刷新页面以更新列表
+      window.location.reload();
+    } catch (err) {
+      setAuditError(err instanceof Error ? err.message : "审核操作失败");
+    } finally {
+      setAuditSubmitting(false);
+    }
+  }, [auditTarget, auditReason]);
+
   return (
     <div className="portal-page admin-page">
       {/* Hero 区域：平台后台简介与风险概览看板 */}
@@ -119,7 +155,7 @@ export function AdminPortal({
               product.category,
               product.stock,
               <StatusTag {...productStatusMap[product.status]} />,
-              <button className="link-button">{product.status === "AUDITING" ? "审核" : "查看"}</button>
+              <button className="link-button" onClick={() => openAudit(product)}>{product.status === "AUDITING" ? "审核" : "查看"}</button>
             ])}
           />
         </Card>
@@ -230,6 +266,58 @@ export function AdminPortal({
           })}
         </div>
       </Card>
+
+      {/* 商品审核弹窗 */}
+      {auditTarget && (
+        <div className="modal-overlay" onClick={() => setAuditTarget(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{maxWidth: 480}}>
+            <div className="modal-header">
+              <h2><BadgeCheck size={20} /> 审核商品</h2>
+              <button type="button" className="modal-close" onClick={() => setAuditTarget(null)} disabled={auditSubmitting}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>商品名称</label>
+                <div className="readonly-field">{auditTarget.name}</div>
+              </div>
+              <div className="form-row" style={{display:'flex', gap:12}}>
+                <div className="form-group" style={{flex:1}}>
+                  <label>商家</label>
+                  <div className="readonly-field">{auditTarget.storeName}</div>
+                </div>
+                <div className="form-group" style={{flex:1}}>
+                  <label>价格</label>
+                  <div className="readonly-field">¥{auditTarget.price}</div>
+                </div>
+              </div>
+              {auditError && <div className="form-error">{auditError}</div>}
+              <div className="form-group">
+                <label>审核意见 {auditReason.trim() ? "" : <span className="muted">（驳回时必填）</span>}</label>
+                <textarea
+                  placeholder="输入审核意见..."
+                  rows={3}
+                  value={auditReason}
+                  onChange={e => { setAuditReason(e.target.value); setAuditError(""); }}
+                  disabled={auditSubmitting}
+                />
+              </div>
+            </div>
+            <div className="modal-footer" style={{display:'flex', gap:8, justifyContent:'flex-end', padding:'12px 16px'}}>
+              <button className="secondary-button" type="button" onClick={() => setAuditTarget(null)} disabled={auditSubmitting}>
+                取消
+              </button>
+              <button className="danger-button compact" type="button" onClick={() => submitAudit(false)} disabled={auditSubmitting}>
+                {auditSubmitting ? <Loader2 size={14} className="spin" /> : <X size={14} />} 驳回
+              </button>
+              <button className="primary-button compact" type="button" onClick={() => submitAudit(true)} disabled={auditSubmitting}>
+                {auditSubmitting ? <Loader2 size={14} className="spin" /> : <Check size={14} />} 通过
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

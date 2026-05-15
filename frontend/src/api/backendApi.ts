@@ -539,5 +539,17 @@ export const api = {
       exceptions,
       operationLogs
     };
+  },
+
+  /** 审核商品（平台后台） */
+  async auditProduct(productId: string, approved: boolean, reason?: string) {
+    const resp = await fetch(`${API_BASE_URL}/admin/products/${productId}/audit`, {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify({ approved, reason: reason || "" })
+    });
+    if (!resp.ok) throw new Error("审核请求失败");
+    const body = await resp.json();
+    if (body.code !== "SUCCESS") throw new Error(body.message || "审核操作失败");
   }
 };

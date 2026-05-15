@@ -32,25 +32,27 @@ public class MerchantProductService {
     }
 
     /**
-     * 分页查询商家自己的商品列表。
+     * 分页查询商家自己的商品列表（支持按名称搜索）。
      *
      * @param merchantId 商家 ID
+     * @param keyword    搜索关键词（可选）
      * @param pageNo     页码
      * @param pageSize   每页条数
      * @return 商品列表
      */
-    public List<ProductDO> listProducts(Long merchantId, int pageNo, int pageSize) {
-        return productRepository.findByMerchantId(merchantId, pageNo, pageSize);
+    public List<ProductDO> listProducts(Long merchantId, String keyword, int pageNo, int pageSize) {
+        return productRepository.findByMerchantId(merchantId, keyword, pageNo, pageSize);
     }
 
     /**
-     * 统计商家商品总数。
+     * 统计商家商品总数（支持按名称搜索）。
      *
      * @param merchantId 商家 ID
+     * @param keyword    搜索关键词（可选）
      * @return 商品总数
      */
-    public long countProducts(Long merchantId) {
-        return productRepository.countByMerchantId(merchantId);
+    public long countProducts(Long merchantId, String keyword) {
+        return productRepository.countByMerchantId(merchantId, keyword);
     }
 
     /**

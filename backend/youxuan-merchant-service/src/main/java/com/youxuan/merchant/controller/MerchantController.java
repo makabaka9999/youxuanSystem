@@ -62,21 +62,23 @@ public class MerchantController {
     }
 
     /**
-     * 分页查询商家自己的商品列表。
+     * 分页查询商家自己的商品列表（支持按名称搜索）。
      *
+     * @param keyword  搜索关键词（可选）
      * @param pageNo   页码
      * @param pageSize 每页条数
      * @return 商品分页列表
      */
     @GetMapping("/merchant/products")
     public ApiResponse<PageResponse<ProductDO>> listProducts(
+            @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "1") int pageNo,
             @RequestParam(defaultValue = "20") int pageSize) {
         Long merchantId = JwtRequestContext.get().getMerchantId();
         if (pageSize > 100) pageSize = 100;
         if (pageNo < 1) pageNo = 1;
-        List<ProductDO> items = merchantProductService.listProducts(merchantId, pageNo, pageSize);
-        long total = merchantProductService.countProducts(merchantId);
+        List<ProductDO> items = merchantProductService.listProducts(merchantId, keyword, pageNo, pageSize);
+        long total = merchantProductService.countProducts(merchantId, keyword);
         return ApiResponse.success(new PageResponse<>(pageNo, pageSize, total, items), RequestContext.getRequestId());
     }
 

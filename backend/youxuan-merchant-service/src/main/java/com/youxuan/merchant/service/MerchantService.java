@@ -99,7 +99,7 @@ public class MerchantService {
      */
     public DashboardDTO getDashboard(Long merchantId) {
         DashboardDTO dashboard = new DashboardDTO();
-        dashboard.setTotalProductCount((int) productRepository.countByMerchantId(merchantId));
+        dashboard.setTotalProductCount((int) productRepository.countByMerchantId(merchantId, null));
         dashboard.setOnSaleProductCount((int) productRepository.countByMerchantIdAndSaleStatus(merchantId, "ON_SALE"));
         dashboard.setPendingAuditProductCount((int) productRepository.countByMerchantIdAndAuditStatus(merchantId, "PENDING"));
         return dashboard;

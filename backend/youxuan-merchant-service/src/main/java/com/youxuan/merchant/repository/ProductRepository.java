@@ -24,30 +24,44 @@ public class ProductRepository {
     }
 
     /**
-     * 根据商家 ID 分页查询商品列表。
+     * 根据商家 ID 分页查询商品列表（支持按名称搜索）。
      *
      * @param merchantId 商家 ID
+     * @param keyword    搜索关键词（可选）
      * @param pageNo     页码
      * @param pageSize   每页条数
      * @return 商品列表
      */
-    public List<ProductDO> findByMerchantId(Long merchantId, int pageNo, int pageSize) {
+    public List<ProductDO> findByMerchantId(Long merchantId, String keyword, int pageNo, int pageSize) {
+        StringBuilder sql = new StringBuilder("SELECT * FROM products WHERE merchant_id = ? AND deleted_at IS NULL");
+        if (keyword != null && !keyword.isEmpty()) {
+            sql.append(" AND product_name LIKE ?");
+        }
+        sql.append(" ORDER BY id DESC LIMIT ? OFFSET ?");
         int offset = (pageNo - 1) * pageSize;
-        return jdbcTemplate.query(
-                "SELECT * FROM products WHERE merchant_id = ? AND deleted_at IS NULL ORDER BY id DESC LIMIT ? OFFSET ?",
-                productRowMapper(), merchantId, pageSize, offset);
+        if (keyword != null && !keyword.isEmpty()) {
+            return jdbcTemplate.query(sql.toString(), productRowMapper(), merchantId, "%" + keyword + "%", pageSize, offset);
+        }
+        return jdbcTemplate.query(sql.toString(), productRowMapper(), merchantId, pageSize, offset);
     }
 
     /**
-     * 统计商家商品总数。
+     * 统计商家商品总数（支持按名称搜索）。
      *
      * @param merchantId 商家 ID
+     * @param keyword    搜索关键词（可选）
      * @return 商品总数
      */
-    public long countByMerchantId(Long merchantId) {
-        Long count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM products WHERE merchant_id = ? AND deleted_at IS NULL",
-                Long.class, merchantId);
+    public long countByMerchantId(Long merchantId, String keyword) {
+        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM products WHERE merchant_id = ? AND deleted_at IS NULL");
+        if (keyword != null && !keyword.isEmpty()) {
+            sql.append(" AND product_name LIKE ?");
+        }
+        if (keyword != null && !keyword.isEmpty()) {
+            Long count = jdbcTemplate.queryForObject(sql.toString(), Long.class, merchantId, "%" + keyword + "%");
+            return count != null ? count : 0L;
+        }
+        Long count = jdbcTemplate.queryForObject(sql.toString(), Long.class, merchantId);
         return count != null ? count : 0L;
     }
 

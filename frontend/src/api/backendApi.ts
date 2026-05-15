@@ -185,24 +185,31 @@ async function fetchSettlements(): Promise<Settlement[]> {
 
 // ── 员工相关 ──
 
-/** 获取商家商品列表 */
-async function fetchMerchantProducts(): Promise<Product[]> {
-  const data = await safeFetch<{ items?: any[]; list?: any[]; total: number }>(`${API_BASE_URL}/merchant/products?pageNo=1&pageSize=50`);
+/** 获取商家商品列表（支持搜索关键词和分页） */
+async function fetchMerchantProducts(keyword?: string, pageNo?: number, pageSize?: number): Promise<{ items: Product[]; total: number }> {
+  const params = new URLSearchParams();
+  if (keyword) params.set("keyword", keyword);
+  params.set("pageNo", String(pageNo ?? 1));
+  params.set("pageSize", String(pageSize ?? 20));
+  const data = await safeFetch<{ items?: any[]; list?: any[]; total: number }>(`${API_BASE_URL}/merchant/products?${params.toString()}`);
   const productItems = data?.items || data?.list || [];
-  return productItems.map((p: any) => ({
-    id: String(p.id || ""),
-    name: p.productName || "",
-    storeName: "",
-    category: String(p.categoryId || ""),
-    price: String(p.price || "0"),
-    stock: p.stockTotal || 0,
-    sales: 0,
-    status: p.auditStatus === "REJECTED" ? "REJECTED" as const
-         : p.auditStatus === "APPROVED" && p.saleStatus === "ON_SALE" ? "ON_SALE" as const
-         : p.auditStatus === "APPROVED" && p.saleStatus === "OFF_SALE" ? "OFF_SALE" as const
-         : "AUDITING" as const,
-    image: p.mainImageUrl || "",
-  }));
+  return {
+    items: productItems.map((p: any) => ({
+      id: String(p.id || ""),
+      name: p.productName || "",
+      storeName: "",
+      category: String(p.categoryId || ""),
+      price: String(p.price || "0"),
+      stock: p.stockTotal || 0,
+      sales: 0,
+      status: p.auditStatus === "REJECTED" ? "REJECTED" as const
+           : p.auditStatus === "APPROVED" && p.saleStatus === "ON_SALE" ? "ON_SALE" as const
+           : p.auditStatus === "APPROVED" && p.saleStatus === "OFF_SALE" ? "OFF_SALE" as const
+           : "AUDITING" as const,
+      image: p.mainImageUrl || "",
+    })),
+    total: data?.total ?? 0
+  };
 }
 
 /** 获取平台后台待审核商品列表 */
@@ -474,15 +481,15 @@ export const api = {
 
   /** 获取商家端首页数据 */
   async getMerchantHome() {
-    const [products, orders, afterSales, settlements] = await Promise.all([
-      fetchMerchantProducts().catch(() => [] as Product[]),
+    const [productResult, orders, afterSales, settlements] = await Promise.all([
+      fetchMerchantProducts().catch(() => ({ items: [] as Product[], total: 0 })),
       fetchOrders().catch(() => [] as Order[]),
       fetchAfterSales().catch(() => [] as AfterSale[]),
       fetchSettlements().catch(() => [] as Settlement[])
     ]);
     return {
-      metrics: buildMerchantMetrics(products, orders, afterSales, settlements),
-      products,
+      metrics: buildMerchantMetrics(productResult.items, orders, afterSales, settlements),
+      products: productResult.items,
       orders,
       afterSales,
       settlements
@@ -504,9 +511,9 @@ export const api = {
     return createStaff(request);
   },
 
-  /** 获取商家商品列表 */
-  async fetchMerchantProducts(): Promise<Product[]> {
-    return fetchMerchantProducts();
+  /** 获取商家商品列表（支持搜索关键词和分页） */
+  async fetchMerchantProducts(keyword?: string, pageNo?: number, pageSize?: number): Promise<{ items: Product[]; total: number }> {
+    return fetchMerchantProducts(keyword, pageNo, pageSize);
   },
 
   /** 获取平台后台商品列表（可按审核状态筛选） */

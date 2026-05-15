@@ -45,7 +45,11 @@ type MerchantPortalProps = {
 export function MerchantPortal({ metrics, products, orders, afterSales, settlements, onNavigate, visibleSections }: MerchantPortalProps) {
   const [displayProducts, setDisplayProducts] = useState<Product[]>(products);
   const [displayMetrics, setDisplayMetrics] = useState<Metric[]>(metrics);
-  const [productKeyword, setProductKeyword] = useState("");
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [productPage, setProductPage] = useState(1);
+  const [productTotal, setProductTotal] = useState(0);
+  const [productLoading, setProductLoading] = useState(false);
+  const productPageSize = 20;
   const withdrawableAmount = useMemo(
     () => displayMetrics.find((m) => m.label === "可提现余额")?.value ?? "0.00",
     [displayMetrics]
@@ -88,16 +92,31 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
   const [prodImageUploading, setProdImageUploading] = useState(false);
   const prodImagePreviewRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    setDisplayProducts(products);
-  }, [products]);
+  /** 从后端加载商品列表（支持搜索和分页） */
+  const loadProducts = useCallback(async (keyword: string, page: number) => {
+    setProductLoading(true);
+    try {
+      const result = await api.fetchMerchantProducts(keyword || undefined, page, productPageSize);
+      setDisplayProducts(result.items);
+      setProductTotal(result.total);
+      setProductPage(page);
+    } catch {
+      setDisplayProducts([]);
+      setProductTotal(0);
+    } finally {
+      setProductLoading(false);
+    }
+  }, []);
 
-  /** 商品本地搜索过滤 */
-  const filteredProducts = useMemo(() => {
-    if (!productKeyword.trim()) return displayProducts;
-    const kw = productKeyword.trim().toLowerCase();
-    return displayProducts.filter(p => p.name.toLowerCase().includes(kw));
-  }, [displayProducts, productKeyword]);
+  /** 按名称搜索 */
+  const handleProductSearch = useCallback(() => {
+    loadProducts(searchKeyword, 1);
+  }, [loadProducts, searchKeyword]);
+
+  /** 翻页 */
+  const handleProductPageChange = useCallback((page: number) => {
+    loadProducts(searchKeyword, page);
+  }, [loadProducts, searchKeyword]);
 
   useEffect(() => {
     setDisplayMetrics(metrics);
@@ -329,9 +348,11 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
         mainImageUrl: prodImage.trim(),
         detailHtml: prodDesc.trim(),
       });
-      const freshProducts = await api.fetchMerchantProducts();
-      setDisplayProducts(freshProducts);
-      setMerchantAuditingMetric(freshProducts);
+      const freshResult = await api.fetchMerchantProducts();
+      setDisplayProducts(freshResult.items);
+      setProductTotal(freshResult.total);
+      setProductPage(1);
+      setMerchantAuditingMetric(freshResult.items);
       setShowProductModal(false);
       setProdName(""); setProdCategoryId(0); setProdPrice(""); setProdStock("");
       setProdImage(""); clearImagePreview(); setProdDesc("");
@@ -404,16 +425,18 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
             <Card id="merchant-products">
               <SectionHeader title="商品管理" description="来源：GET /api/v1/merchant/products" />
               <Toolbar>
-                <input className="search-input" placeholder="搜索商品名称" value={productKeyword} onChange={e => setProductKeyword(e.target.value)} />
-                <button className="primary-button compact" type="button">
-                  <Search size={14} /> 搜索
+                <input className="search-input" placeholder="搜索商品名称" value={searchKeyword}
+                  onChange={e => setSearchKeyword(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") handleProductSearch(); }} />
+                <button className="primary-button compact" type="button" onClick={handleProductSearch} disabled={productLoading}>
+                  {productLoading ? <Loader2 size={14} className="spin" /> : <Search size={14} />} 搜索
                 </button>
               </Toolbar>
               <DataTable
                 columns={["商品", "价格", "库存", "状态", "操作"]}
-                rows={filteredProducts.length === 0
+                rows={displayProducts.length === 0
                   ? [["", <span className="muted">暂无商品，点击"发布商品"创建</span>, "", "", ""]]
-                  : filteredProducts.map((product) => [
+                  : displayProducts.map((product) => [
                     <div className="table-product">{product.image ? <img src={product.image} alt="" /> : null}<span>{product.name}</span></div>,
                     <AmountText value={product.price} />,
                     product.stock,
@@ -422,6 +445,13 @@ export function MerchantPortal({ metrics, products, orders, afterSales, settleme
                   ])
                 }
               />
+              {productTotal > productPageSize && (
+                <div className="pagination" style={{display:'flex', justifyContent:'flex-end', gap:4, padding:'8px 0'}}>
+                  <button className="secondary-button compact" type="button" disabled={productPage <= 1 || productLoading} onClick={() => handleProductPageChange(productPage - 1)}>上一页</button>
+                  <span className="pagination-info" style={{lineHeight:'28px', fontSize:13, padding:'0 8px'}}>第 {productPage} / {Math.ceil(productTotal / productPageSize)} 页</span>
+                  <button className="secondary-button compact" type="button" disabled={productPage >= Math.ceil(productTotal / productPageSize) || productLoading} onClick={() => handleProductPageChange(productPage + 1)}>下一页</button>
+                </div>
+              )}
             </Card>
           )}
           {canShow("orders") && (

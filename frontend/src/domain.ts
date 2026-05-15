@@ -27,11 +27,12 @@ export const afterSaleStatusMap: Record<AfterSaleStatus, { label: string; tone: 
   PLATFORM_INTERVENING: { label: "平台介入", tone: "danger" }
 };
 
-/** 商品状态映射：在售 / 下架 / 审核中 / 已驳回 */
+/** 商品状态映射：在售 / 下架 / 审核中 / 已通过 / 已驳回 */
 export const productStatusMap = {
   ON_SALE: { label: "在售", tone: "success" as StatusTone },
   OFF_SALE: { label: "下架", tone: "neutral" as StatusTone },
   AUDITING: { label: "审核中", tone: "warning" as StatusTone },
+  APPROVED: { label: "已通过", tone: "info" as StatusTone },
   REJECTED: { label: "已驳回", tone: "danger" as StatusTone }
 };
 

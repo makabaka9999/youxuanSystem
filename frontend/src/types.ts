@@ -51,8 +51,8 @@ export type Product = {
   stock: number;
   /** 销量 */
   sales: number;
-  /** 商品状态：在售 / 下架 / 审核中 / 已驳回 */
-  status: "ON_SALE" | "OFF_SALE" | "AUDITING" | "REJECTED";
+  /** 商品状态：在售 / 下架 / 审核中 / 已通过 / 已驳回 */
+  status: "ON_SALE" | "OFF_SALE" | "AUDITING" | "APPROVED" | "REJECTED";
   /** 商品图片 URL */
   image: string;
 };

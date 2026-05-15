@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 平台后台 - 商品管理控制器（AdminProductController）。
  * <p>
- * 提供待审核商品查询和商品审核操作接口。
+ * 提供商品查询和审核操作接口。
  * 接口路径：/api/v1/admin/products
  * </p>
  */
@@ -33,13 +33,28 @@ public class AdminProductController {
     }
 
     /**
-     * 分页查询待审核商品列表。
+     * 分页查询商品列表，可按审核状态筛选。
      *
-     * @param keyword    搜索关键词
-     * @param merchantId 商户 ID（可选）
-     * @param pageNo     页码
-     * @param pageSize   每页条数
-     * @return 待审核商品列表
+     * @param keyword     搜索关键词
+     * @param merchantId  商户 ID（可选）
+     * @param auditStatus 审核状态：PENDING / APPROVED / REJECTED，不传返回全部
+     * @param pageNo      页码
+     * @param pageSize    每页条数
+     */
+    @GetMapping
+    public ApiResponse<PageResponse<ProductAuditVO>> listProducts(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long merchantId,
+            @RequestParam(required = false) String auditStatus,
+            @RequestParam(defaultValue = "1") int pageNo,
+            @RequestParam(defaultValue = "20") int pageSize) {
+        PageResponse<ProductAuditVO> result =
+                adminProductService.listProducts(keyword, merchantId, auditStatus, pageNo, pageSize);
+        return ApiResponse.success(result, RequestContext.getRequestId());
+    }
+
+    /**
+     * 分页查询待审核商品列表。
      */
     @GetMapping("/pending-audit")
     public ApiResponse<PageResponse<ProductAuditVO>> listPendingAuditProducts(
@@ -48,7 +63,7 @@ public class AdminProductController {
             @RequestParam(defaultValue = "1") int pageNo,
             @RequestParam(defaultValue = "20") int pageSize) {
         PageResponse<ProductAuditVO> result =
-                adminProductService.listPendingAuditProducts(keyword, merchantId, pageNo, pageSize);
+                adminProductService.listProducts(keyword, merchantId, "PENDING", pageNo, pageSize);
         return ApiResponse.success(result, RequestContext.getRequestId());
     }
 

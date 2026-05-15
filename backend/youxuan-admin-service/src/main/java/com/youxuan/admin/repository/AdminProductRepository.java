@@ -1,8 +1,6 @@
 package com.youxuan.admin.repository;
 
 import com.youxuan.admin.model.ProductAuditVO;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -23,9 +21,15 @@ public class AdminProductRepository {
     }
 
     /**
-     * 分页查询待审核商品列表，含店铺名和类目名。
+     * 分页查询商品列表，含店铺名和类目名。
+     *
+     * @param keyword    搜索关键词（可选）
+     * @param merchantId 商户 ID（可选）
+     * @param status     审核状态筛选：PENDING / APPROVED / REJECTED，null 或空返回全部
+     * @param pageNo     页码
+     * @param pageSize   每页条数
      */
-    public List<ProductAuditVO> findPendingAudit(String keyword, Long merchantId, int pageNo, int pageSize) {
+    public List<ProductAuditVO> findByAuditStatus(String keyword, Long merchantId, String status, int pageNo, int pageSize) {
         StringBuilder sql = new StringBuilder(
                 "SELECT p.id, p.product_name, p.main_image_url, p.price, p.stock_total, " +
                 "p.audit_status, p.reject_reason, p.merchant_id, " +
@@ -33,9 +37,13 @@ public class AdminProductRepository {
                 "FROM products p " +
                 "LEFT JOIN stores s ON p.store_id = s.id " +
                 "LEFT JOIN categories c ON p.category_id = c.id " +
-                "WHERE p.audit_status = 'PENDING' AND p.deleted_at IS NULL");
+                "WHERE p.deleted_at IS NULL");
         List<Object> params = new ArrayList<>();
 
+        if (status != null && !status.isEmpty()) {
+            sql.append(" AND p.audit_status = ?");
+            params.add(status);
+        }
         if (keyword != null && !keyword.isEmpty()) {
             sql.append(" AND p.product_name LIKE ?");
             params.add("%" + keyword + "%");
@@ -53,13 +61,21 @@ public class AdminProductRepository {
     }
 
     /**
-     * 统计待审核商品总数。
+     * 统计商品总数。
+     *
+     * @param keyword    搜索关键词（可选）
+     * @param merchantId 商户 ID（可选）
+     * @param status     审核状态筛选，null 或空返回全部
      */
-    public int countPendingAudit(String keyword, Long merchantId) {
+    public int countByAuditStatus(String keyword, Long merchantId, String status) {
         StringBuilder sql = new StringBuilder(
-                "SELECT COUNT(*) FROM products p WHERE p.audit_status = 'PENDING' AND p.deleted_at IS NULL");
+                "SELECT COUNT(*) FROM products p WHERE p.deleted_at IS NULL");
         List<Object> params = new ArrayList<>();
 
+        if (status != null && !status.isEmpty()) {
+            sql.append(" AND p.audit_status = ?");
+            params.add(status);
+        }
         if (keyword != null && !keyword.isEmpty()) {
             sql.append(" AND p.product_name LIKE ?");
             params.add("%" + keyword + "%");

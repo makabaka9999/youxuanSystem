@@ -9,8 +9,8 @@
  * - 订单与售后监控
  * - 操作审计日志
  */
-import { AlertTriangle, BadgeCheck, Check, FileClock, Landmark, ListChecks, Loader2, ScrollText, ShieldAlert, X } from "lucide-react";
-import { useCallback, useState } from "react";
+import { AlertTriangle, BadgeCheck, Check, FileClock, Landmark, ListChecks, Loader2, ScrollText, Search, ShieldAlert, X } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import {
   afterSaleStatusMap,
   merchantAuditMap,
@@ -73,7 +73,6 @@ export function AdminPortal({
     try {
       await api.auditProduct(auditTarget.id, approved, auditReason.trim() || undefined);
       setAuditTarget(null);
-      // 刷新页面以更新列表
       window.location.reload();
     } catch (err) {
       setAuditError(err instanceof Error ? err.message : "审核操作失败");
@@ -81,6 +80,32 @@ export function AdminPortal({
       setAuditSubmitting(false);
     }
   }, [auditTarget, auditReason]);
+
+  // ── 审核管理面板状态 ──
+  const [showAuditPanel, setShowAuditPanel] = useState(false);
+  const [auditProducts, setAuditProducts] = useState<Product[]>([]);
+  const [auditPanelKeyword, setAuditPanelKeyword] = useState("");
+  const [auditPanelFilter, setAuditPanelFilter] = useState(""); // ""全部 / PENDING / APPROVED / REJECTED
+  const [auditPanelLoading, setAuditPanelLoading] = useState(false);
+
+  const loadAuditPanel = useCallback(async (keyword: string, filter: string) => {
+    setAuditPanelLoading(true);
+    try {
+      const list = await api.fetchAdminProducts(keyword || undefined, filter || undefined);
+      setAuditProducts(list);
+    } catch {
+      setAuditProducts([]);
+    } finally {
+      setAuditPanelLoading(false);
+    }
+  }, []);
+
+  const openAuditPanel = useCallback(() => {
+    setShowAuditPanel(true);
+    setAuditPanelKeyword("");
+    setAuditPanelFilter("");
+    loadAuditPanel("", "");
+  }, [loadAuditPanel]);
 
   return (
     <div className="portal-page admin-page">
@@ -146,7 +171,7 @@ export function AdminPortal({
 
         {/* 商品审核队列 */}
         <Card id="admin-product-audit">
-          <SectionHeader title="商品审核队列" description="来源：GET /api/v1/admin/products/pending-audit" action="商品审核" />
+          <SectionHeader title="商品审核队列" description="来源：GET /api/v1/admin/products/pending-audit" action="全部商品" onAction={openAuditPanel} />
           <DataTable
             columns={["商品", "商家", "类目", "库存", "状态", "操作"]}
             rows={products.map((product) => [
@@ -266,6 +291,63 @@ export function AdminPortal({
           })}
         </div>
       </Card>
+
+      {/* 商品审核管理面板 */}
+      {showAuditPanel && (
+        <div className="modal-overlay" onClick={() => setShowAuditPanel(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{maxWidth: 900, maxHeight: '85vh', display: 'flex', flexDirection: 'column'}}>
+            <div className="modal-header">
+              <h2><BadgeCheck size={20} /> 商品审核管理</h2>
+              <button type="button" className="modal-close" onClick={() => setShowAuditPanel(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body" style={{flex: 1, overflow: 'auto'}}>
+              <Toolbar>
+                <input className="search-input" placeholder="搜索商品名称..." value={auditPanelKeyword} onChange={e => setAuditPanelKeyword(e.target.value)} />
+                <button className="primary-button compact" type="button" onClick={() => loadAuditPanel(auditPanelKeyword, auditPanelFilter)}>
+                  <Search size={14} /> 搜索
+                </button>
+              </Toolbar>
+              <div className="filter-tabs" style={{display:'flex', gap:6, margin:'12px 0'}}>
+                {[
+                  { label: "全部", value: "" },
+                  { label: "待审核", value: "PENDING" },
+                  { label: "已通过", value: "APPROVED" },
+                  { label: "已驳回", value: "REJECTED" }
+                ].map(tab => (
+                  <button key={tab.value}
+                    className={auditPanelFilter === tab.value ? "primary-button compact" : "secondary-button compact"}
+                    type="button"
+                    onClick={() => { setAuditPanelFilter(tab.value); loadAuditPanel(auditPanelKeyword, tab.value); }}>
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              {auditPanelLoading ? (
+                <div className="loading-row" style={{textAlign:'center', padding:24}}><Loader2 className="spin" size={24} /></div>
+              ) : (
+                <DataTable
+                  columns={["商品", "商家", "价格", "库存", "状态", "操作"]}
+                  rows={auditProducts.length === 0
+                    ? [["", <span className="muted">暂无商品</span>, "", "", "", ""]]
+                    : auditProducts.map(product => [
+                      <div className="table-product"><img src={product.image} alt="" /><span>{product.name}</span></div>,
+                      product.storeName,
+                      <AmountText value={product.price} />,
+                      product.stock,
+                      <StatusTag {...productStatusMap[product.status]} />,
+                      <button className="link-button" onClick={() => { setShowAuditPanel(false); openAudit(product); }}>
+                        {product.status === "AUDITING" ? "审核" : "查看"}
+                      </button>
+                    ])
+                  }
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 商品审核弹窗 */}
       {auditTarget && (

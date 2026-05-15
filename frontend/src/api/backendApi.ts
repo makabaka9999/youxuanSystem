@@ -224,6 +224,30 @@ async function fetchAdminPendingProducts(): Promise<Product[]> {
   }));
 }
 
+/** 获取平台后台商品列表（可按审核状态筛选） */
+async function fetchAdminProducts(keyword?: string, auditStatus?: string): Promise<Product[]> {
+  const params = new URLSearchParams({ pageNo: "1", pageSize: "50" });
+  if (keyword) params.set("keyword", keyword);
+  if (auditStatus) params.set("auditStatus", auditStatus);
+  const data = await safeFetch<{ list: any[]; total: number }>(
+    `${API_BASE_URL}/admin/products?${params.toString()}`
+  );
+  if (!data || !data.list) return [];
+  return data.list.map((p: any) => ({
+    id: String(p.id || ""),
+    name: p.productName || "",
+    storeName: p.storeName || "",
+    category: p.categoryName || "",
+    price: String(p.price || "0"),
+    stock: p.stockTotal || 0,
+    sales: 0,
+    status: p.auditStatus === "REJECTED" ? "REJECTED" as const
+         : p.auditStatus === "APPROVED" ? "APPROVED" as const
+         : "AUDITING" as const,
+    image: p.mainImageUrl || ""
+  }));
+}
+
 /** 创建商品 */
 async function createMerchantProduct(request: {
   productName: string;
@@ -483,6 +507,11 @@ export const api = {
   /** 获取商家商品列表 */
   async fetchMerchantProducts(): Promise<Product[]> {
     return fetchMerchantProducts();
+  },
+
+  /** 获取平台后台商品列表（可按审核状态筛选） */
+  async fetchAdminProducts(keyword?: string, auditStatus?: string): Promise<Product[]> {
+    return fetchAdminProducts(keyword, auditStatus);
   },
 
   /** 创建商品 */

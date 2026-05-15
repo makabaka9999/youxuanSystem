@@ -29,18 +29,19 @@ public class AdminProductService {
     }
 
     /**
-     * 分页查询待审核商品列表。
+     * 分页查询商品列表（可按审核状态筛选）。
      *
      * @param keyword    搜索关键词
      * @param merchantId 商户 ID（可选）
+     * @param auditStatus 审核状态：PENDING / APPROVED / REJECTED，null 返回全部
      * @param pageNo     页码
      * @param pageSize   每页条数
-     * @return 待审核商品列表
+     * @return 商品列表
      */
-    public PageResponse<ProductAuditVO> listPendingAuditProducts(String keyword, Long merchantId, int pageNo, int pageSize) {
-        LOGGER.info("查询待审核商品，关键词：{}，商户：{}", keyword, merchantId);
-        List<ProductAuditVO> list = adminProductRepository.findPendingAudit(keyword, merchantId, pageNo, pageSize);
-        int total = adminProductRepository.countPendingAudit(keyword, merchantId);
+    public PageResponse<ProductAuditVO> listProducts(String keyword, Long merchantId, String auditStatus, int pageNo, int pageSize) {
+        LOGGER.info("查询商品列表，关键词：{}，商户：{}，状态：{}", keyword, merchantId, auditStatus);
+        List<ProductAuditVO> list = adminProductRepository.findByAuditStatus(keyword, merchantId, auditStatus, pageNo, pageSize);
+        int total = adminProductRepository.countByAuditStatus(keyword, merchantId, auditStatus);
         return new PageResponse<>(pageNo, pageSize, total, list);
     }
 
